@@ -184,6 +184,7 @@ block_t* block_Resize(block_t* dest, uint32_t dest_size_required);
 block_t* block_Resize_Soft(block_t* dest, uint32_t dest_size_min_required); //perform a soft allocation to src->p_size * 2  where p_size < 2M
 block_t* block_Duplicate(block_t* a);
 block_t* block_Duplicate_from_position(block_t* a);
+block_t* block_Duplicate_from_position_to_size(block_t* a, uint32_t target_len);
 block_t* block_Duplicate_to_size(block_t* src, uint32_t target_len);
 block_t* block_Duplicate_from_ptr(uint8_t* data, uint32_t size); //src
 uint32_t block_Remaining_size(block_t* src);

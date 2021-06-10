@@ -164,6 +164,10 @@ atsc3_mmt_mfu_mpu_timestamp_descriptor_t* atsc3_get_mpu_timestamp_from_packet_id
 //		note: injects a "synthetic" mpu_timestamp_descriptor for durability in the condition of a possibly sustained SI message loss
 atsc3_mmt_mfu_mpu_timestamp_descriptor_t* atsc3_get_mpu_timestamp_from_packet_id_mpu_sequence_number_with_mmtp_timestamp_recovery_differential(atsc3_mmt_mfu_context_t* atsc3_mmt_mfu_context, uint16_t packet_id, uint32_t mmtp_timestamp, uint32_t mpu_sequence_number);
 
+//jjustman-2021-06-09 - #12416 - MMT DRM support - TODO: FIX me to update RP with OOO support, this is implicity IN-ORDER due to the 'senc' box being required for decoder sample IV and encryption subsample offsets
+block_t* atsc3_mmt_movie_fragment_extract_senc_payload_blockt(block_t* mmt_movie_fragment_metadata);
+
+
 //Warning: cross boundary processing hooks with callback invocation - impl's in atsc3_mmt_context_mfu_depacketizer.c
 
 void mmtp_mfu_process_from_payload_with_context(udp_packet_t *udp_packet, mmtp_mpu_packet_t* mmtp_mpu_packet, atsc3_mmt_mfu_context_t* atsc3_mmt_mfu_context);

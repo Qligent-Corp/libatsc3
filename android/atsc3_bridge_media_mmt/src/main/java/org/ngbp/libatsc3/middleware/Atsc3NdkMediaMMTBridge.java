@@ -5,6 +5,7 @@ import android.util.Log;
 import org.ngbp.libatsc3.middleware.android.ATSC3PlayerFlags;
 import org.ngbp.libatsc3.middleware.android.application.interfaces.IAtsc3NdkMediaMMTBridgeCallbacks;
 import org.ngbp.libatsc3.middleware.android.mmt.MfuByteBufferFragment;
+import org.ngbp.libatsc3.middleware.android.mmt.MmtMovieFragmentMetadataBox_senc_Payload;
 import org.ngbp.libatsc3.middleware.android.mmt.MmtPacketIdContext;
 import org.ngbp.libatsc3.middleware.android.mmt.MpuMetadata_HEVC_NAL_Payload;
 import org.ngbp.libatsc3.middleware.android.mmt.models.MMTAudioDecoderConfigurationRecord;
@@ -130,6 +131,19 @@ public class Atsc3NdkMediaMMTBridge extends Atsc3NdkMediaMMTBridgeStaticJniLoade
         MmtPacketIdContext.video_packet_id = packet_id;
         MmtPacketIdContext.video_packet_statistics.width = width;
         MmtPacketIdContext.video_packet_statistics.height = height;
+
+        return 0;
+    }
+
+    public int atsc3_onExtractedMovieFragmentMetataBox_senc(int packet_id, long mpu_sequence_number, ByteBuffer byteBuffer, int length) {
+        Log.d("Atsc3NdkMediaMMTBridge", String.format("atsc3_onExtractedMovieFragmentMetataBox_senc: packet_id: %d, mpu_sequence_number: %d, byteBuffer: %s, length: %d",
+                packet_id, mpu_sequence_number, byteBuffer, length));
+
+        //jjustman-2021-06-09 - TODO - push this into mActivity / input queue for processing/depacketization via Atsc3MMTExtractor
+
+        MmtMovieFragmentMetadataBox_senc_Payload mmtMovieFragmentMetadataBox_senc_Payload = new MmtMovieFragmentMetadataBox_senc_Payload(packet_id, mpu_sequence_number, byteBuffer, length);
+
+        mActivity.pushMmtMovieFragmentMetadataBox_senc_Payload(mmtMovieFragmentMetadataBox_senc_Payload);
 
         return 0;
     }

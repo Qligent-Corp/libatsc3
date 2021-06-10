@@ -1329,4 +1329,57 @@ uint32_t atsc3_mmt_movie_fragment_extract_sample_duration_us(block_t* mmt_movie_
     return sample_duration_rebased_us;
 }
 
+block_t* atsc3_mmt_movie_fragment_extract_senc_payload_blockt(block_t* mmt_movie_fragment_metadata) {
+
+	block_t* atsc3_mmt_movie_fragment_box_senc_payload_block = NULL;
+
+    if(!mmt_movie_fragment_metadata) {
+        __MMSM_ERROR("atsc3_mmt_movie_fragment_extract_senc_payload_blockt: mmt_movie_fragment_metadata was NULL!");
+        return NULL;
+    }
+
+    block_Rewind(mmt_movie_fragment_metadata);
+
+    //we need at least NNN bytes for tfhd box...
+    if(block_Remaining_size(mmt_movie_fragment_metadata) < 100) {
+        __MMSM_ERROR("atsc3_mmt_movie_fragment_extract_senc_payload_blockt: block_Remaining_size(mmt_movie_fragment_metadata): %d less than 100 bytes!",
+                     block_Remaining_size(mmt_movie_fragment_metadata));
+        return 0;
+    }
+
+    uint8_t* ptr = block_Get(mmt_movie_fragment_metadata);
+    uint32_t ptr_len = block_Remaining_size(mmt_movie_fragment_metadata);
+
+    __MMSM_TRACE("atsc3_mmt_movie_fragment_extract_senc_payload_blockt: extracting from %p, ptr: %p, pos: %d, length: %d",
+            mmt_movie_fragment_metadata, ptr, mmt_movie_fragment_metadata->i_pos, mmt_movie_fragment_metadata->p_size);
+
+
+    for (int i = 0; !atsc3_mmt_movie_fragment_box_senc_payload_block && (ptr_len - i) > 4; i++) {
+
+    	__MMSM_TRACE("atsc3_mmt_movie_fragment_extract_senc_payload_blockt: searching for 'senc', pos: %d, checking: 0x%02x (%c), 0x%02x (%c), 0x%02x (%c), 0x%02x (%c)",
+                    	i, ptr[i], ptr[i], ptr[i + 1], ptr[i + 1], ptr[i + 2], ptr[i + 2], ptr[i + 3], ptr[i + 3]);
+
+		//look for our fourcc 'senc'
+		if (ptr[i] == 's' && ptr[i + 1] == 'e' && ptr[i + 2] == 'n' && ptr[i + 3] == 'c') {
+
+		    //move our i_pos to ptr[i] - 4 to get box size
+			block_Seek(mmt_movie_fragment_metadata, i - 4);
+			uint32_t senc_box_size = block_Read_uint32_ntohl(mmt_movie_fragment_metadata);
+			block_Seek_Relative(mmt_movie_fragment_metadata, -4);
+
+			atsc3_mmt_movie_fragment_box_senc_payload_block = block_Duplicate_from_position_to_size(mmt_movie_fragment_metadata, senc_box_size);
+			block_Rewind(atsc3_mmt_movie_fragment_box_senc_payload_block);
+
+			__MMSM_DEBUG("atsc3_mmt_movie_fragment_extract_senc_payload_blockt: senc: found matching at position: %d, duplicated block_t: %p, len: %d", i, atsc3_mmt_movie_fragment_box_senc_payload_block, atsc3_mmt_movie_fragment_box_senc_payload_block->p_size);
+
+			break;
+		}
+    }
+
+
+    block_Rewind(mmt_movie_fragment_metadata);
+
+    return atsc3_mmt_movie_fragment_box_senc_payload_block;
+}
+
 

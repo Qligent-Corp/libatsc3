@@ -591,9 +591,24 @@ uint8_t* block_Get(block_t* src) {
     if(!__block_check_bounaries(__FUNCTION__, src)) return NULL;
     return &src->p_buffer[src->i_pos];
 }
+
 uint32_t block_Len(block_t* src) {
     if(!__block_check_bounaries(__FUNCTION__, src)) return 0;
     return src->p_size;
+}
+
+//block_Duplicate_from_position_to_size
+
+block_t* block_Duplicate_from_position_to_size(block_t* src, uint32_t target_len) {
+	if(!__block_check_bounaries(__FUNCTION__, src)) return NULL;
+    if(!__block_check_bounaries_read_size(__FUNCTION__, src, target_len)) return NULL;
+
+
+	block_t* dest = __block_Alloc_internal(target_len);
+	memcpy(dest->p_buffer, block_Get(src), target_len);
+	dest->i_pos = target_len;
+
+	return dest;
 }
 /**
  *

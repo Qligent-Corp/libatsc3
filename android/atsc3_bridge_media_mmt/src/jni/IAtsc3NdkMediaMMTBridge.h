@@ -40,6 +40,9 @@ class IAtsc3NdkMediaMMTBridge {
         virtual void atsc3_onExtractedSampleDuration(uint16_t packet_id, uint32_t mpu_sequence_number, uint32_t extracted_sample_duration_us) = 0;
         virtual void atsc3_setVideoWidthHeightFromTrak(uint16_t packet_id, uint32_t width, uint32_t height) = 0;
 
+        //jjustman-2021-06-09 #12416 - MMT DRM support - callback for IN-ORDER 'senc' ISOBMFF box handoff for mediaCodec queueSecureInputBuffer
+        virtual void atsc3_onExtractedMovieFragmentMetataBox_senc(uint16_t packet_id, uint32_t mpu_sequence_number, block_t* atsc3_mmt_movie_fragment_box_senc_payload_block) = 0;
+
         //MFU callbacks
         virtual void atsc3_onMfuPacket(uint16_t service_id, uint16_t packet_id, uint32_t mpu_sequence_number, uint32_t sample_number, uint8_t* buffer, uint32_t bufferLen, uint64_t presentationUs, uint32_t mfu_fragment_count_expected) = 0;
         virtual void atsc3_onMfuPacketCorrupt(uint16_t service_id, uint16_t packet_id, uint32_t mpu_sequence_number, uint32_t sample_number, uint8_t* buffer, uint32_t bufferLen, uint64_t presentationUs, uint32_t mfu_fragment_count_expected, uint32_t mfu_fragment_count_rebuilt) = 0;

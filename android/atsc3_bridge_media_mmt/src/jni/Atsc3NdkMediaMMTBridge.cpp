@@ -391,6 +391,26 @@ void Atsc3NdkMediaMMTBridge::atsc3_setVideoWidthHeightFromTrak(uint16_t packet_i
      Atsc3NdkMediaMMTBridge::GetBridgeConsumerJniEnv()->Get()->CallIntMethod(jni_instance_globalRef, atsc3_setVideoWidthHeightFromTrakID, packet_id, width, height);
 }
 
+
+//MFU metadata for sample duration
+void Atsc3NdkMediaMMTBridge::atsc3_onExtractedMovieFragmentMetataBox_senc(uint16_t packet_id, uint32_t mpu_sequence_number, block_t* atsc3_mmt_movie_fragment_box_senc_payload_block) {
+    this->pinConsumerThreadAsNeeded(); //jjustman-2020-12-17 - hack
+
+    Atsc3JniEnv* localJniEnv = Atsc3NdkMediaMMTBridge::GetBridgeConsumerJniEnv();
+
+    if (!localJniEnv) {
+        _NDK_MEDIA_MMT_BRIDGE_ERROR("ats3_onMfuPacket: Atsc3NdkMediaMMTBridge::atsc3_onExtractedMovieFragmentMetataBox_senc: localJniEnv is NULL!");
+        return;
+    }
+
+    int32_t bufferLen = block_Remaining_size(atsc3_mmt_movie_fragment_box_senc_payload_block);
+    jobject jobjectLocalByteBuffer = localJniEnv->Get()->NewDirectByteBuffer(block_Get(atsc3_mmt_movie_fragment_box_senc_payload_block), bufferLen);
+
+
+    localJniEnv->Get()->CallIntMethod(jni_instance_globalRef, atsc3_onExtractedMovieFragmentMetataBox_sencID, (int32_t)packet_id, (int64_t)mpu_sequence_number, jobjectLocalByteBuffer, (int32_t) bufferLen);
+    localJniEnv->Get()->DeleteLocalRef(jobjectLocalByteBuffer);
+}
+
 //on fully recovered MFU packet
 void Atsc3NdkMediaMMTBridge::atsc3_onMfuPacket(uint16_t service_id, uint16_t packet_id, uint32_t mpu_sequence_number, uint32_t sample_number, uint8_t* buffer, uint32_t bufferLen, uint64_t presentationUs, uint32_t mfu_fragment_count_rebuilt) {
     Atsc3JniEnv* localJniEnv = Atsc3NdkMediaMMTBridge::GetBridgeConsumerJniEnv();
@@ -400,26 +420,16 @@ void Atsc3NdkMediaMMTBridge::atsc3_onMfuPacket(uint16_t service_id, uint16_t pac
         return;
     }
 
-    //LogMsg("Atsc3NdkMediaMMTBridge::atsc3_onMfuPacket: before localJniEnv->Get() NewDirectByteBuffer");
-
     //_NDK_MEDIA_MMT_BRIDGE_ERROR("Atsc3NdkMediaMMTBridge::atsc3_onMfuPacket: this: %p, localJniEnv: %p, localJniEnv->get(): %p, packet_id: %d, mpu_sequence_number: %d, buffer: %p, length: %d", this, localJniEnv, localJniEnv->Get(), packet_id, mpu_sequence_number, buffer, bufferLen);
     jobject jobjectLocalByteBuffer = localJniEnv->Get()->NewDirectByteBuffer(buffer, bufferLen);
-    //LogMsg("Atsc3NdkMediaMMTBridge::atsc3_onMfuPacket: after localJniEnv->Get() NewDirectByteBuffer");
 
     //_NDK_MEDIA_MMT_BRIDGE_ERROR("Atsc3NdkMediaMMTBridge::atsc3_onMfuPacket: before CallIntMethod, jobjectLocalByteBuffer is: %d, jni_instance_globalRef: %p, method: %d", jobjectLocalByteBuffer, jni_instance_globalRef, atsc3_onMfuPacketID);
-
-    //LogMsg("Atsc3NdkMediaMMTBridge::atsc3_onMfuPacket: before localJniEnv->Get()->CallIntMethod");
     localJniEnv->Get()->CallIntMethod(jni_instance_globalRef, atsc3_onMfuPacketID, (int32_t) packet_id, (int64_t)mpu_sequence_number, (int32_t)sample_number, jobjectLocalByteBuffer, (int32_t)bufferLen, (int64_t)presentationUs, (int32_t)mfu_fragment_count_rebuilt);
-    //LogMsg("Atsc3NdkMediaMMTBridge::atsc3_onMfuPacket: after localJniEnv->Get()->CallIntMethod");
 
-    //_NDK_MEDIA_MMT_BRIDGE_INFO("Atsc3NdkPHYBridge::onMfuPacket, ret: %d, bufferLen: %u", r, bufferLen);
-    //_NDK_MEDIA_MMT_BRIDGE_ERROR("Atsc3NdkMediaMMTBridge::atsc3_onMfuPacket: before delete");
-    //jjustman-2020-12-17 - TODO - confirm -
     localJniEnv->Get()->DeleteLocalRef(jobjectLocalByteBuffer);
-    //_NDK_MEDIA_MMT_BRIDGE_ERROR("Atsc3NdkMediaMMTBridge::atsc3_onMfuPacket: return");
 
     if((_NDK_MEDIA_MMT_BRIDGE_atsc3_onMfuPacket_counter++ < 10) || ((_NDK_MEDIA_MMT_BRIDGE_atsc3_onMfuPacket_counter % 1000) == 0)) {
-        _NDK_MEDIA_MMT_BRIDGE_INFO("Atsc3NdkMediaMMTBridge::atsc3_onMfuPacket: Atsc3RingBuffer::RING_BUFFER_PAGE_FRAGMENT, this: %p, service_id: %d, packet_id: %d, mpu_sequence_number: %d, buffer: %p, length: %d, onMfuPacket_counter: %d", this, service_id, packet_id, mpu_sequence_number, buffer, bufferLen, _NDK_MEDIA_MMT_BRIDGE_atsc3_onMfuPacket_counter);
+        _NDK_MEDIA_MMT_BRIDGE_INFO("Atsc3NdkMediaMMTBridge::atsc3_onMfuPacket:  this: %p, service_id: %d, packet_id: %d, mpu_sequence_number: %d, buffer: %p, length: %d, onMfuPacket_counter: %d", this, service_id, packet_id, mpu_sequence_number, buffer, bufferLen, _NDK_MEDIA_MMT_BRIDGE_atsc3_onMfuPacket_counter);
     }
 }
 
@@ -635,6 +645,14 @@ Java_org_ngbp_libatsc3_middleware_Atsc3NdkMediaMMTBridge_init(JNIEnv *env, jobje
         _NDK_MEDIA_MMT_BRIDGE_ERROR("Atsc3NdkMediaMMTBridge_init: cannot find 'atsc3_setVideoWidthHeightFromTrakID' method id");
         return -1;
     }
+
+    //atsc3_onExtractedMovieFragmentMetataBox_sencID
+    mediaMMTBridge->atsc3_onExtractedMovieFragmentMetataBox_sencID = env->GetMethodID(jniClassReference, "atsc3_onExtractedMovieFragmentMetataBox_senc", "(IJLjava/nio/ByteBuffer;I)I");
+    if (mediaMMTBridge->atsc3_onExtractedMovieFragmentMetataBox_sencID == NULL) {
+        _NDK_MEDIA_MMT_BRIDGE_ERROR("Atsc3NdkMediaMMTBridge_init: cannot find 'atsc3_onExtractedMovieFragmentMetataBox_sencID' method id");
+        return -1;
+    }
+
 
     //MFU callbacks
     //java.nio.ByteBuffer, L: fully qualified class, J: long

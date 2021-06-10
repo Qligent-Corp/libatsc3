@@ -327,6 +327,15 @@ void atsc3_mmt_mpu_mfu_on_sample_missing_ndk(atsc3_mmt_mfu_context_t* atsc3_mmt_
     Atsc3NdkMediaMMTBridge_ptr->atsc3_onMfuSampleMissing(packet_id, mpu_sequence_number, sample_number);
 }
 
+/*
+ * jjustman-2021-06-09: TODO - for MMT w/ DRM, we will need to extract out the 'senc' box  payload for processing and inclusion into the cryptoInfo sample, e.g.:
+ *
+ *
+ * 	See FragmentedMP4Extractor, SampleQueue and MediaCodecRenderer:
+ *
+ *         codec.queueSecureInputBuffer(inputIndex, 0, cryptoInfo, presentationTimeUs, 0);
+ *
+ */
 void atsc3_mmt_mpu_on_sequence_movie_fragment_metadata_present_ndk(atsc3_mmt_mfu_context_t* atsc3_mmt_mfu_context, uint16_t packet_id, uint32_t mpu_sequence_number, block_t* mmt_movie_fragment_metadata) {
     uint32_t decoder_configuration_timebase = 1000000; //set as default to uS
     uint32_t extracted_sample_duration_us = 0;
@@ -337,11 +346,20 @@ void atsc3_mmt_mpu_on_sequence_movie_fragment_metadata_present_ndk(atsc3_mmt_mfu
         return;
     }
 
-    _ATSC3_MMT_MFU_CONTEXT_CALLBACKS_DEFAULT_JNI_DEBUG("atsc3_mmt_mpu_on_sequence_movie_fragment_metadata_present_ndk: packet_id: %d, asset_type: %s, atsc3_video_decoder_configuration_record: %p, atsc3_audio_decoder_configuration_record: %p, atsc3_stpp_decoder_configuration_record: %p",
+    _ATSC3_MMT_MFU_CONTEXT_CALLBACKS_DEFAULT_JNI_DEBUG("atsc3_mmt_mpu_on_sequence_movie_fragment_metadata_present_ndk: packet_id: %d, mpu_sequence_number: %d, asset_type: %s, atsc3_video_decoder_configuration_record: %p, atsc3_audio_decoder_configuration_record: %p, atsc3_stpp_decoder_configuration_record: %p",
+                                                       packet_id,
+                                                       mpu_sequence_number,
                                                        atsc3_mmt_mfu_context->mmtp_packet_id_packets_container->asset_type,
                                                        atsc3_mmt_mfu_context->mmtp_packet_id_packets_container->atsc3_video_decoder_configuration_record,
                                                        atsc3_mmt_mfu_context->mmtp_packet_id_packets_container->atsc3_audio_decoder_configuration_record,
                                                        atsc3_mmt_mfu_context->mmtp_packet_id_packets_container->atsc3_stpp_decoder_configuration_record)
+
+    //jjustman-2021-06-09 - MMT DRM #12416 - extract out our senc box and provide it for mediaCodecRenderer.queueSecureInputBuffer for IV and encrypted/clear bytes in samples
+    block_t* atsc3_mmt_movie_fragment_box_senc_payload_block = atsc3_mmt_movie_fragment_extract_senc_payload_blockt(mmt_movie_fragment_metadata);
+    if(atsc3_mmt_movie_fragment_box_senc_payload_block) {
+        Atsc3NdkMediaMMTBridge_ptr->atsc3_onExtractedMovieFragmentMetataBox_senc(packet_id, mpu_sequence_number, atsc3_mmt_movie_fragment_box_senc_payload_block);
+    	block_Destroy(&atsc3_mmt_movie_fragment_box_senc_payload_block);
+    }
 
     if(atsc3_mmt_mfu_context->mmtp_packet_id_packets_container->atsc3_video_decoder_configuration_record && atsc3_mmt_mfu_context->mmtp_packet_id_packets_container->atsc3_video_decoder_configuration_record->timebase) {
         decoder_configuration_timebase = atsc3_mmt_mfu_context->mmtp_packet_id_packets_container->atsc3_video_decoder_configuration_record->timebase;

@@ -65,6 +65,9 @@ public:
     void atsc3_onExtractedSampleDuration(uint16_t packet_id, uint32_t mpu_sequence_number, uint32_t extracted_sample_duration_us);
     void atsc3_setVideoWidthHeightFromTrak(uint16_t packet_id, uint32_t width, uint32_t height);
 
+    //jjustman-2021-06-09 #12416 - MMT DRM support - callback for IN-ORDER 'senc' ISOBMFF box handoff for mediaCodec queueSecureInputBuffer
+    void atsc3_onExtractedMovieFragmentMetataBox_senc(uint16_t packet_id, uint32_t mpu_sequence_number, block_t* atsc3_mmt_movie_fragment_box_senc_payload_block);
+
     //MFU callbacks
     void atsc3_onMfuPacket(uint16_t service_id, uint16_t packet_id, uint32_t mpu_sequence_number, uint32_t sample_number, uint8_t* buffer, uint32_t bufferLen, uint64_t presentationUs, uint32_t mfu_fragment_count_expected);
     void atsc3_onMfuPacketCorrupt(uint16_t service_id, uint16_t packet_id, uint32_t mpu_sequence_number, uint32_t sample_number, uint8_t* buffer, uint32_t bufferLen, uint64_t presentationUs, uint32_t mfu_fragment_count_expected, uint32_t mfu_fragment_count_rebuilt);
@@ -136,6 +139,8 @@ public:
 
     jmethodID atsc3_onExtractedSampleDurationID = nullptr;
     jmethodID atsc3_setVideoWidthHeightFromTrakID = nullptr;
+
+    jmethodID atsc3_onExtractedMovieFragmentMetataBox_sencID = nullptr;
 
     jmethodID atsc3_onMfuPacketID = nullptr; //java method for pushing to a/v codec buffers
     jmethodID atsc3_onMfuPacketCorruptID = nullptr; //java method for pushing to a/v codec buffers
