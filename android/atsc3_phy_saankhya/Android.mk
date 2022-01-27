@@ -150,13 +150,19 @@ $(LOCAL_MODULE): SL_SDR_ICCM_BUILD_TARGET
 SL_SDR_ICCM_BUILD_TARGET:
 	$(shell mkdir -p "$(LOCAL_PATH)/prebuilt/firmware/atsc3")
 
-	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/atsc3_aa/fx3/iccm.hex     $(LOCAL_PATH)/prebuilt/firmware/atsc3/iccm_aa_fx3.hex)
-	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/atsc3_aa/markone/iccm.hex $(LOCAL_PATH)/prebuilt/firmware/atsc3/iccm_aa_markone.hex)
-	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/atsc3_bb/fx3/iccm_BB.hex  $(LOCAL_PATH)/prebuilt/firmware/atsc3/iccm_bb_fx3.hex)
+	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/atsc3_aa/fx3/iccm.hex     		$(LOCAL_PATH)/prebuilt/firmware/atsc3/iccm_aa_fx3.hex)
+	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/atsc3_aa/markone/iccm.hex 		$(LOCAL_PATH)/prebuilt/firmware/atsc3/iccm_aa_markone.hex)
+	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/atsc3_bb/fx3/iccm_bb.hex  		$(LOCAL_PATH)/prebuilt/firmware/atsc3/iccm_bb_fx3.hex)
+	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/atsc3_bb/markone/iccm_bb.hex  	$(LOCAL_PATH)/prebuilt/firmware/atsc3/iccm_bb_markone.hex)
+	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/calib_aa/iccm.hex     	  		$(LOCAL_PATH)/prebuilt/firmware/atsc3/iccm_calib_aa.hex)
+	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/calib_bb/iccm_bb.hex      		$(LOCAL_PATH)/prebuilt/firmware/atsc3/iccm_calib_bb.hex)
 
 	$(shell cd $(LOCAL_PATH)/prebuilt/firmware/atsc3/ && $(TARGET_LD) -r -b binary ./iccm_aa_fx3.hex     -o ./iccm_aa_fx3_hex.o)
 	$(shell cd $(LOCAL_PATH)/prebuilt/firmware/atsc3/ && $(TARGET_LD) -r -b binary ./iccm_aa_markone.hex -o ./iccm_aa_markone_hex.o)
 	$(shell cd $(LOCAL_PATH)/prebuilt/firmware/atsc3/ && $(TARGET_LD) -r -b binary ./iccm_bb_fx3.hex     -o ./iccm_bb_fx3_hex.o)
+	$(shell cd $(LOCAL_PATH)/prebuilt/firmware/atsc3/ && $(TARGET_LD) -r -b binary ./iccm_bb_markone.hex -o ./iccm_bb_markone_hex.o)
+	$(shell cd $(LOCAL_PATH)/prebuilt/firmware/atsc3/ && $(TARGET_LD) -r -b binary ./iccm_calib_aa.hex   -o ./iccm_calib_aa.o)
+	$(shell cd $(LOCAL_PATH)/prebuilt/firmware/atsc3/ && $(TARGET_LD) -r -b binary ./iccm_calib_bb.hex   -o ./iccm_calib_bb.o)
 
 include $(BUILD_SHARED_LIBRARY)
 
@@ -170,13 +176,19 @@ $(LOCAL_MODULE): SL_SDR_DCCM_BUILD_TARGET
 SL_SDR_DCCM_BUILD_TARGET:
 	$(shell mkdir -p "$(LOCAL_PATH)/prebuilt/firmware/atsc3/")
 
-	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/atsc3_aa/fx3/dccm.hex     $(LOCAL_PATH)/prebuilt/firmware/atsc3/dccm_aa_fx3.hex)
-	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/atsc3_aa/markone/dccm.hex $(LOCAL_PATH)/prebuilt/firmware/atsc3/dccm_aa_markone.hex)
-	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/atsc3_bb/fx3/dccm_BB.hex  $(LOCAL_PATH)/prebuilt/firmware/atsc3/dccm_bb_fx3.hex)
+	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/atsc3_aa/fx3/dccm.hex     		$(LOCAL_PATH)/prebuilt/firmware/atsc3/dccm_aa_fx3.hex)
+	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/atsc3_aa/markone/dccm.hex 		$(LOCAL_PATH)/prebuilt/firmware/atsc3/dccm_aa_markone.hex)
+	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/atsc3_bb/fx3/dccm_bb.hex 		$(LOCAL_PATH)/prebuilt/firmware/atsc3/dccm_bb_fx3.hex)
+	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/atsc3_bb/markone/dccm_bb.hex  	$(LOCAL_PATH)/prebuilt/firmware/atsc3/dccm_bb_markone.hex)
+	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/calib_aa/dccm.hex     	  		$(LOCAL_PATH)/prebuilt/firmware/atsc3/dccm_calib_aa.hex)
+	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/calib_bb/dccm_bb.hex  	 		 $(LOCAL_PATH)/prebuilt/firmware/atsc3/dccm_calib_bb.hex)
 
 	$(shell cd $(LOCAL_PATH)/prebuilt/firmware/atsc3/ && $(TARGET_LD) -r -b binary ./dccm_aa_fx3.hex     -o ./dccm_aa_fx3_hex.o)
 	$(shell cd $(LOCAL_PATH)/prebuilt/firmware/atsc3/ && $(TARGET_LD) -r -b binary ./dccm_aa_markone.hex -o ./dccm_aa_markone_hex.o)
 	$(shell cd $(LOCAL_PATH)/prebuilt/firmware/atsc3/ && $(TARGET_LD) -r -b binary ./dccm_bb_fx3.hex     -o ./dccm_bb_fx3_hex.o)
+	$(shell cd $(LOCAL_PATH)/prebuilt/firmware/atsc3/ && $(TARGET_LD) -r -b binary ./dccm_bb_markone.hex -o ./dccm_bb_markone_hex.o)
+	$(shell cd $(LOCAL_PATH)/prebuilt/firmware/atsc3/ && $(TARGET_LD) -r -b binary ./dccm_calib_aa.hex   -o ./dccm_calib_aa.o)
+	$(shell cd $(LOCAL_PATH)/prebuilt/firmware/atsc3/ && $(TARGET_LD) -r -b binary ./dccm_calib_bb.hex   -o ./dccm_calib_bb.o)
 
 include $(BUILD_SHARED_LIBRARY)
 
@@ -190,18 +202,41 @@ $(LOCAL_MODULE): SL_SDR_ATSC3_BUILD_TARGET
 SL_SDR_ATSC3_BUILD_TARGET:
 	$(shell mkdir -p "$(LOCAL_PATH)/prebuilt/firmware/atsc3/")
 
-	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/atsc3_aa/fx3/atsc3.hex     $(LOCAL_PATH)/prebuilt/firmware/atsc3/atsc3_aa_fx3.hex)
-	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/atsc3_aa/markone/atsc3.hex $(LOCAL_PATH)/prebuilt/firmware/atsc3/atsc3_aa_markone.hex)
-	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/atsc3_bb/fx3/atsc3_BB.hex  $(LOCAL_PATH)/prebuilt/firmware/atsc3/atsc3_bb_fx3.hex)
+	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/atsc3_aa/fx3/atsc3.hex     		$(LOCAL_PATH)/prebuilt/firmware/atsc3/atsc3_aa_fx3.hex)
+	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/atsc3_aa/markone/atsc3.hex 		$(LOCAL_PATH)/prebuilt/firmware/atsc3/atsc3_aa_markone.hex)
+	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/atsc3_bb/fx3/atsc3_bb.hex  		$(LOCAL_PATH)/prebuilt/firmware/atsc3/atsc3_bb_fx3.hex)
+	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/atsc3_bb/markone/atsc3_bb.hex  	$(LOCAL_PATH)/prebuilt/firmware/atsc3/atsc3_bb_markone.hex)
 
 	$(shell cd $(LOCAL_PATH)/prebuilt/firmware/atsc3/ && $(TARGET_LD) -r -b binary ./atsc3_aa_fx3.hex     -o ./atsc3_aa_fx3_hex.o)
 	$(shell cd $(LOCAL_PATH)/prebuilt/firmware/atsc3/ && $(TARGET_LD) -r -b binary ./atsc3_aa_markone.hex -o ./atsc3_aa_markone_hex.o)
 	$(shell cd $(LOCAL_PATH)/prebuilt/firmware/atsc3/ && $(TARGET_LD) -r -b binary ./atsc3_bb_fx3.hex     -o ./atsc3_bb_fx3_hex.o)
+	$(shell cd $(LOCAL_PATH)/prebuilt/firmware/atsc3/ && $(TARGET_LD) -r -b binary ./atsc3_bb_markone.hex     -o ./atsc3_bb_markone_hex.o)
 
 include $(BUILD_SHARED_LIBRARY)
 # END of SL HEX payload binary resource object linkage
 # ---------------------------
 
+
+# ---------------------------
+# SL HEX payload binary resource object linkage
+# jjustman-2021-03-02 - split for aa and bb
+# calib.hex
+
+LOCAL_PATH := $(MY_LOCAL_PATH)
+include $(CLEAR_VARS)
+LOCAL_MODULE :=  SL_SDR_CALIB_BUILD
+$(LOCAL_MODULE): SL_SDR_CALIB_BUILD_TARGET
+
+SL_SDR_CALIB_BUILD_TARGET:
+	$(shell mkdir -p "$(LOCAL_PATH)/prebuilt/firmware/atsc3")
+
+	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/calib_aa/calib.hex	  $(LOCAL_PATH)/prebuilt/firmware/atsc3/calib_aa.hex)
+	$(shell cp $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/bin/calib_bb/calib_bb.hex $(LOCAL_PATH)/prebuilt/firmware/atsc3/calib_bb.hex)
+
+	$(shell cd $(LOCAL_PATH)/prebuilt/firmware/atsc3/ && $(TARGET_LD) -r -b binary ./calib_aa.hex -o ./calib_aa.o)
+	$(shell cd $(LOCAL_PATH)/prebuilt/firmware/atsc3/ && $(TARGET_LD) -r -b binary ./calib_bb.hex -o ./calib_bb.o)
+
+include $(BUILD_SHARED_LIBRARY)
 
 # ---------------------------
 # atsc3_phy_saankhya module
@@ -233,21 +268,22 @@ LIB_SL_API := \
     $(wildcard $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/src/tuner/nxp/*.c)		\
     $(wildcard $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/src/tuner/silabs/*.c) 	\
     $(wildcard $(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/src/tuner/situne/*.c) 	\
-   	$(LOCAL_PATH)/../../saankhyalabs-slsdk/slplf/src/slconfig/sl_config.c 			\
-	$(wildcard $(LOCAL_PATH)/../../saankhyalabs-slsdk/slplf/src/dispatchers/*.c)
+  	$(wildcard $(LOCAL_PATH)/../../saankhyalabs-slsdk/slplf/src/*.c)				\
+	$(wildcard $(LOCAL_PATH)/../../saankhyalabs-slsdk/slplf/src/slconfig/*.c)
 
 LOCAL_C_INCLUDES += \
-	$(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/inc \
-	$(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/src/demod \
-	$(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/src/tuner/nxp \
-	$(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/src/tuner/silabs \
-	$(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/src/tuner/situne 			\
-	$(LOCAL_PATH)/../../saankhyalabs-slsdk/slplf/inc 						\
-	$(LOCAL_PATH)/../../saankhyalabs-slsdk/slplf/src/dispatchers/include 	\
+	$(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/inc 								\
+	$(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/inc/diag							\
+	$(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/src/demod 							\
+	$(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/src/tuner/nxp 						\
+	$(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/src/tuner/silabs 					\
+	$(LOCAL_PATH)/../../saankhyalabs-slsdk/slapi/src/tuner/situne 					\
+	$(LOCAL_PATH)/../../saankhyalabs-slsdk/slplf/inc 								\
 	$(LOCAL_PATH)/../../libusb_android/libusb
 
 # jjustman-2020-09-08 - for FX3-USB based I/F
 INCLUDE_SL_API_REF := \
+	$(LOCAL_PATH)/../../saankhyalabs-slsdk/slplf/src/slref \
 	$(LOCAL_PATH)/../../saankhyalabs-slsdk/slplf/src/slref/fx3s
 
 LIB_SL_API_REF := \
@@ -286,6 +322,7 @@ LOCAL_CFLAGS += -D__DISABLE_LIBPCAP__ \
 				-Dlinux  \
 				-DSI_TUNER \
 				-D__ANDROID_ARCH_$(TARGET_ARCH_ABI)__
+# 			 				-D__JJ_CALIBRATION_ENABLED
 
 LOCAL_LDFLAGS += -L $(LOCAL_PATH)/../atsc3_bridge/build/intermediates/ndkBuild/debug/obj/local/$(TARGET_ARCH_ABI)/ \
 				 -L $(LOCAL_PATH)/../atsc3_core/build/intermediates/ndkBuild/debug/obj/local/$(TARGET_ARCH_ABI)/
@@ -300,12 +337,21 @@ LOCAL_LDLIBS += \
 	$(LOCAL_PATH)/prebuilt/firmware/atsc3/iccm_aa_fx3_hex.o \
 	$(LOCAL_PATH)/prebuilt/firmware/atsc3/iccm_aa_markone_hex.o \
 	$(LOCAL_PATH)/prebuilt/firmware/atsc3/iccm_bb_fx3_hex.o \
+	$(LOCAL_PATH)/prebuilt/firmware/atsc3/iccm_bb_markone_hex.o \
+	$(LOCAL_PATH)/prebuilt/firmware/atsc3/iccm_calib_aa.o \
+	$(LOCAL_PATH)/prebuilt/firmware/atsc3/iccm_calib_bb.o \
 	$(LOCAL_PATH)/prebuilt/firmware/atsc3/dccm_aa_fx3_hex.o \
 	$(LOCAL_PATH)/prebuilt/firmware/atsc3/dccm_aa_markone_hex.o \
 	$(LOCAL_PATH)/prebuilt/firmware/atsc3/dccm_bb_fx3_hex.o \
+	$(LOCAL_PATH)/prebuilt/firmware/atsc3/dccm_bb_markone_hex.o \
+	$(LOCAL_PATH)/prebuilt/firmware/atsc3/dccm_calib_aa.o \
+   	$(LOCAL_PATH)/prebuilt/firmware/atsc3/dccm_calib_bb.o \
 	$(LOCAL_PATH)/prebuilt/firmware/atsc3/atsc3_aa_fx3_hex.o \
 	$(LOCAL_PATH)/prebuilt/firmware/atsc3/atsc3_aa_markone_hex.o \
 	$(LOCAL_PATH)/prebuilt/firmware/atsc3/atsc3_bb_fx3_hex.o \
+	$(LOCAL_PATH)/prebuilt/firmware/atsc3/atsc3_bb_markone_hex.o \
+	$(LOCAL_PATH)/prebuilt/firmware/atsc3/calib_aa.o \
+	$(LOCAL_PATH)/prebuilt/firmware/atsc3/calib_bb.o
 
 LOCAL_SHARED_LIBRARIES := \
 	P3_FW_BUILD \

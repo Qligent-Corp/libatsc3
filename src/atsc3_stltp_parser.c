@@ -547,6 +547,8 @@ bool atsc3_stltp_tunnel_packet_extract_fragment_encapsulated_payload(atsc3_stltp
     uint32_t pre_extract_container_size = 0;
     bool	has_completed_packet = false;
 
+	//	__STLTP_PARSER_TRACE("atsc3_stltp_tunnel_packet_extract_fragment_encapsulated_payload: ip_udp_rtp_ctp_packet_inner->rtp_ctp_header ip: 0x%08x (%u.%u.%u.%u:%u)", atsc3_stltp_tunnel_packet_current->ip_udp_rtp_ctp_packet_inner->udp_flow.dst_ip_addr, __toipandportnonstruct(atsc3_stltp_tunnel_packet_current->ip_udp_rtp_ctp_packet_inner->udp_flow.dst_ip_addr, atsc3_stltp_tunnel_packet_current->ip_udp_rtp_ctp_packet_inner->udp_flow.dst_port));
+	
     if(atsc3_stltp_tunnel_packet_current->ip_udp_rtp_ctp_packet_inner->rtp_ctp_header->payload_type == ATSC3_STLTP_PAYLOAD_TYPE_BASEBAND_PACKET) {
     	pre_extract_container_size = atsc3_stltp_tunnel_packet_current->atsc3_stltp_baseband_packet_v.count;
 
@@ -1812,6 +1814,14 @@ void atsc3_preamble_packet_dump(atsc3_preamble_packet_t* atsc3_preamble_packet) 
 			atsc3_preamble_packet->L1_detail_signaling.L1D_subframe_parameters_v.count,
 			atsc3_preamble_packet->L1_basic_signaling.L1B_time_info_flag
     );
+	
+	__STLTP_PARSER_DUMP("preamble: L1D_timing_info: L1B_time_info_flag: 0x%02x, time_sec: 0x%02x, time_msec: 0x%02x, time_usec: 0x%02x, time_nsec: 0x%02x",
+			atsc3_preamble_packet->L1_basic_signaling.L1B_time_info_flag,
+			atsc3_preamble_packet->L1_detail_signaling.L1D_time_sec_block.L1D_time_sec,
+			atsc3_preamble_packet->L1_detail_signaling.L1D_time_sec_block.L1D_time_msec,
+			atsc3_preamble_packet->L1_detail_signaling.L1D_time_sec_block.L1D_time_usec,
+			atsc3_preamble_packet->L1_detail_signaling.L1D_time_sec_block.L1D_time_nsec
+	);
 
 	if(atsc3_preamble_packet->L1_basic_signaling.L1B_time_info_flag != 0x0) {
 		if(atsc3_preamble_packet->L1_basic_signaling.L1B_time_info_flag != 0x01) {

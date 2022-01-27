@@ -42,18 +42,18 @@ public:
 
     void LogMsg(const char *msg);
     void LogMsg(const std::string &msg);
+    \
     void LogMsgF(const char *fmt, ...);
 
     void atsc3_notify_phy_error(const char* fmt, ...);
 
     void atsc3_update_rf_stats(int32_t tuner_lock,    //1
-                                       int32_t rssi,
+                                       int32_t rssi_1000,
                                        uint8_t modcod_valid,
                                        uint8_t plp_fec_type,
                                        uint8_t plp_mod,
                                        uint8_t plp_cod,
-                                       int32_t nRfLevel1000,
-                                       int32_t nSnr1000,
+                                       int32_t nSnr_1000,
                                        uint32_t ber_pre_ldpc_e7,
                                        uint32_t ber_pre_bch_e9,
                                        uint32_t fer_post_bch_e6,
@@ -65,6 +65,8 @@ public:
     void atsc3_update_rf_stats_from_atsc3_ndk_phy_client_rf_metrics_t(atsc3_ndk_phy_client_rf_metrics_t* atsc3_ndk_phy_client_rf_metrics);
 
     void atsc3_update_rf_bw_stats(uint64_t total_pkts, uint64_t total_bytes, unsigned int total_lmts);
+
+    void atsc3_update_l1d_time_information(uint8_t l1B_time_info_flag, uint32_t l1D_time_sec, uint16_t l1D_time_msec, uint16_t l1D_time_usec, uint16_t l1D_time_nsec);
 
     void setRfPhyStatisticsViewVisible(bool isRfPhyStatisticsVisible);
 
@@ -103,6 +105,8 @@ public:
     jclass    atsc3_nkd_phy_client_rf_metrics_jclass_global_ref = nullptr;
 
     jmethodID atsc3_update_rf_bw_stats_ID = nullptr;     // java callback method id for by stats
+
+    jmethodID atsc3_l1d_time_information_callback_ID = nullptr;
 
     std::thread atsc3_rxStatusThread;
 

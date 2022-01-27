@@ -25,7 +25,7 @@
 
 #include "../atsc3_mmtp_packet_types.h"
 #include "../atsc3_mmtp_parser.h"
-#include "../atsc3_mmtp_ntp32_to_pts.h"
+#include "../atsc3_ntp_utils.h"
 #include "../atsc3_mmt_mpu_utils.h"
 #include "../atsc3_mmt_context_mfu_depacketizer.h"
 
@@ -35,7 +35,7 @@
 #define _SRT_STLTP_VIRTUAL_PHY_ALC_WRITER_WARN(...)    __LIBATSC3_TIMESTAMP_WARN(__VA_ARGS__);
 #define _SRT_STLTP_VIRTUAL_PHY_ALC_WRITER_INFO(...)    __LIBATSC3_TIMESTAMP_INFO(__VA_ARGS__);
 #define _SRT_STLTP_VIRTUAL_PHY_ALC_WRITER_DEBUG(...)   __LIBATSC3_TIMESTAMP_DEBUG(__VA_ARGS__);
-#define _SRT_STLTP_VIRTUAL_PHY_ALC_WRITER_TRACE(...)   __LIBATSC3_TIMESTAMP_TRACE(__VA_ARGS__);
+#define _SRT_STLTP_VIRTUAL_PHY_ALC_WRITER_TRACE(...)   //__LIBATSC3_TIMESTAMP_TRACE(__VA_ARGS__);
 
 // #define __DEBUGGING_DUMP_TIMING_MANAGEMENT_AND_PREAMBLE_PACKETS 1
 
@@ -55,6 +55,19 @@ atsc3_alc_session_t* atsc3_alc_session;
 lls_sls_mmt_monitor_t* lls_sls_mmt_monitor = NULL;
 
 uint32_t alc_packet_received_count = 0;
+
+
+//NOTE: this will _not_ by default update the PHY with a new list of PLPs to listen, this needs to performed in the atsc3_core_service_player_bridge.cpp
+void atsc3_lls_sls_alc_on_metadata_fragments_updated_callback_internal_add_monitor_and_alc_session_flows(lls_sls_alc_monitor_t* lls_sls_alc_monitor) {
+	int ip_mulitcast_flows_added_count = 0;
+
+	ip_mulitcast_flows_added_count = lls_sls_alc_add_additional_ip_flows_from_route_s_tsid(lls_slt_monitor, lls_sls_alc_monitor, lls_sls_alc_monitor->atsc3_sls_metadata_fragments->atsc3_route_s_tsid);
+
+	if(ip_mulitcast_flows_added_count) {
+		__INFO("atsc3_lls_sls_alc_on_metadata_fragments_updated_callback_internal_add_monitor_and_alc_session_flows: added %d ip mulitcast flows for alc monitor and session", ip_mulitcast_flows_added_count);
+	}
+}
+
 
 void atsc3_reset_context() {
 	_SRT_STLTP_VIRTUAL_PHY_ALC_WRITER_INFO("atsc3_reset_context");
@@ -110,6 +123,8 @@ bool atsc3_mmt_signalling_information_on_routecomponent_message_present_ndk(atsc
 	}
 
 	lls_sls_alc_monitor = lls_sls_alc_monitor_create();
+	lls_sls_alc_monitor->atsc3_lls_sls_alc_on_metadata_fragments_updated_callback = &atsc3_lls_sls_alc_on_metadata_fragments_updated_callback_internal_add_monitor_and_alc_session_flows;
+
 	lls_sls_alc_monitor->atsc3_lls_slt_service = atsc3_mmt_mfu_context->matching_lls_sls_mmt_session->atsc3_lls_slt_service;
 	lls_sls_alc_monitor->lls_sls_monitor_output_buffer_mode.file_dump_enabled = true;
 	lls_sls_alc_monitor->has_discontiguous_toi_flow = true; //jjustman-2020-07-27 - hack-ish
@@ -144,7 +159,7 @@ bool atsc3_mmt_signalling_information_on_routecomponent_message_present_ndk(atsc
 
 
 
-void alc_process_from_udp_packet(udp_packet_t* udp_packet) {
+void process_from_udp_packet(udp_packet_t* udp_packet) {
 	atsc3_alc_packet_t* alc_packet = NULL;
 	
 	//mmt types
@@ -165,7 +180,7 @@ void alc_process_from_udp_packet(udp_packet_t* udp_packet) {
 
         //auto-assign our first ROUTE service id here
         if(lls_table && lls_table->lls_table_id == SLT) {
-            _SRT_STLTP_VIRTUAL_PHY_ALC_WRITER_INFO("LLS table is:\n%s", lls_table->raw_xml.xml_payload);
+            _SRT_STLTP_VIRTUAL_PHY_ALC_WRITER_INFO("process_from_udp_packet: LLS table is:\n%s", lls_table->raw_xml.xml_payload);
 			
 			//reset our atsc3 context here
 			//jjustman-2021-04-16 - TODO - fixme - this will wipe out lls_table
@@ -182,19 +197,20 @@ void alc_process_from_udp_packet(udp_packet_t* udp_packet) {
 				//build our ROUTE monitor
 				if(atsc3_lls_slt_service->atsc3_slt_broadcast_svc_signalling_v.count && atsc3_lls_slt_service->atsc3_slt_broadcast_svc_signalling_v.data[0]->sls_protocol == SLS_PROTOCOL_ROUTE) {
 					lls_sls_alc_monitor_t* lls_sls_alc_monitor_local = lls_sls_alc_monitor_create();
+					lls_sls_alc_monitor_local->atsc3_lls_sls_alc_on_metadata_fragments_updated_callback = &atsc3_lls_sls_alc_on_metadata_fragments_updated_callback_internal_add_monitor_and_alc_session_flows;
 
 					lls_slt_service_id_t* lls_slt_service_id = lls_slt_service_id_new_from_atsc3_lls_slt_service(atsc3_lls_slt_service);
 					lls_slt_monitor_add_lls_slt_service_id(lls_slt_monitor, lls_slt_service_id);
 
 					lls_sls_alc_session_t* lls_sls_alc_session = lls_slt_alc_session_find_from_service_id(lls_slt_monitor, atsc3_lls_slt_service->service_id);
 					if(!lls_sls_alc_session) {
-						_SRT_STLTP_VIRTUAL_PHY_ALC_WRITER_WARN("lls_slt_alc_session_find_from_service_id: lls_sls_alc_session is NULL!");
+						_SRT_STLTP_VIRTUAL_PHY_ALC_WRITER_WARN("process_from_udp_packet: lls_slt_alc_session_find_from_service_id: lls_sls_alc_session is NULL!");
 					}
 					lls_sls_alc_monitor_local->lls_alc_session = lls_sls_alc_session;
 					lls_sls_alc_monitor_local->atsc3_lls_slt_service = atsc3_lls_slt_service;
 					lls_sls_alc_monitor_local->lls_sls_monitor_output_buffer_mode.file_dump_enabled = true;
 
-					_SRT_STLTP_VIRTUAL_PHY_ALC_WRITER_WARN("process_packet: adding lls_sls_alc_monitor: %p to lls_slt_monitor: %p, service_id: %d",
+					_SRT_STLTP_VIRTUAL_PHY_ALC_WRITER_INFO("process_from_udp_packet: adding lls_sls_alc_monitor: %p to lls_slt_monitor: %p, service_id: %d",
 						   lls_sls_alc_monitor_local, lls_slt_monitor, lls_sls_alc_session->service_id);
 
 					lls_slt_monitor_add_lls_sls_alc_monitor(lls_slt_monitor, lls_sls_alc_monitor_local);
@@ -219,7 +235,7 @@ void alc_process_from_udp_packet(udp_packet_t* udp_packet) {
 					lls_sls_mmt_session_t* lls_sls_mmt_session = lls_slt_mmt_session_find_from_service_id(lls_slt_monitor, atsc3_lls_slt_service->service_id);
 
 					if(!lls_sls_mmt_session) {
-						_SRT_STLTP_VIRTUAL_PHY_ALC_WRITER_WARN("atsc3_core_service_player_bridge_set_single_monitor_a331_service_id: lls_slt_mmt_session_find_from_service_id: lls_sls_mmt_session is NULL!");
+						_SRT_STLTP_VIRTUAL_PHY_ALC_WRITER_WARN("process_from_udp_packet: atsc3_core_service_player_bridge_set_single_monitor_a331_service_id: lls_slt_mmt_session_find_from_service_id: lls_sls_mmt_session is NULL!");
 					} else {
 						atsc3_mmt_mfu_context_t* atsc3_mmt_mfu_context = atsc3_mmt_mfu_context_internal_flows_new(); //instead of jni callbacks - atsc3_mmt_mfu_context_callbacks_default_jni_new();
 						lls_sls_mmt_session->atsc3_mmt_mfu_context = atsc3_mmt_mfu_context;
@@ -236,7 +252,7 @@ void alc_process_from_udp_packet(udp_packet_t* udp_packet) {
 				}
             }
         } else if(lls_table && lls_table->lls_table_id == AEAT) {
-			_SRT_STLTP_VIRTUAL_PHY_ALC_WRITER_INFO("AEAT table is:\n%s", lls_table->raw_xml.xml_payload);
+			_SRT_STLTP_VIRTUAL_PHY_ALC_WRITER_INFO("process_from_udp_packet: AEAT table is:\n%s", lls_table->raw_xml.xml_payload);
 			//jjustman-2021-04-16 - write out our lls.xml fragment
 			block_t* lls_table_payload = block_Duplicate_from_ptr(lls_table->raw_xml.xml_payload, lls_table->raw_xml.xml_payload_size);
 			block_Write_to_filename(lls_table_payload, LLS_FRAGMENT_AEAT_FILENAME);
@@ -270,27 +286,22 @@ void alc_process_from_udp_packet(udp_packet_t* udp_packet) {
 				alc_packet_received_count++;
 
 			} else {
-				_SRT_STLTP_VIRTUAL_PHY_ALC_WRITER_ERROR("Error in ALC persist, atsc3_route_object is NULL!");
+				_SRT_STLTP_VIRTUAL_PHY_ALC_WRITER_ERROR("process_from_udp_packet: Error in ALC persist, atsc3_route_object is NULL!");
 
 			}
 
 		} else {
-			_SRT_STLTP_VIRTUAL_PHY_ALC_WRITER_ERROR("Error in ALC decode: %d", retval);
+			_SRT_STLTP_VIRTUAL_PHY_ALC_WRITER_ERROR("process_from_udp_packet: Error in ALC decode: %d", retval);
 		}
 	} else {
-#ifdef __PENDANTIC__
-		_SRT_STLTP_VIRTUAL_PHY_ALC_WRITER_INFO("Discarding packet: lls_sls_alc_monitor: %p, matching_lls_sls_alc_monitor: %p, matching_lls_slt_alc_session: %p, packet: %u.%u.%u.%u:%u, size: %d",
-				lls_sls_alc_monitor, matching_lls_sls_alc_monitor, matching_lls_slt_alc_session,
-				__toipandportnonstruct(udp_packet->udp_flow.dst_ip_addr, udp_packet->udp_flow.dst_port),
-				udp_packet->data->p_size);
-#endif
+
 		
 		//jjustman-2021-04-16 - todo - refactor me
 		//MMT: Find a matching SLS service from this packet flow, and if the selected atsc3_lls_slt_service is monitored, enqueue for MFU DU re-constituion and emission
 		matching_lls_sls_mmt_session = lls_sls_mmt_session_find_from_udp_packet(lls_slt_monitor, udp_packet->udp_flow.src_ip_addr, udp_packet->udp_flow.dst_ip_addr, udp_packet->udp_flow.dst_port);
-		_SRT_STLTP_VIRTUAL_PHY_ALC_WRITER_INFO("Checking matching_lls_sls_mmt_session: %p,", matching_lls_sls_mmt_session);
+		_SRT_STLTP_VIRTUAL_PHY_ALC_WRITER_TRACE("Checking matching_lls_sls_mmt_session: %p,", matching_lls_sls_mmt_session);
 
-		if(matching_lls_sls_mmt_session && lls_slt_monitor && lls_slt_monitor->lls_sls_mmt_monitor && matching_lls_sls_mmt_session->atsc3_lls_slt_service->service_id == lls_slt_monitor->lls_sls_mmt_monitor->transients.atsc3_lls_slt_service->service_id) {
+		if(matching_lls_sls_mmt_session && lls_slt_monitor && lls_slt_monitor->lls_sls_mmt_monitor && lls_slt_monitor->lls_sls_mmt_monitor->transients.atsc3_lls_slt_service && matching_lls_sls_mmt_session->atsc3_lls_slt_service->service_id == lls_slt_monitor->lls_sls_mmt_monitor->transients.atsc3_lls_slt_service->service_id) {
 
 			atsc3_mmt_mfu_context = matching_lls_sls_mmt_session->atsc3_mmt_mfu_context;
 			
@@ -540,11 +551,24 @@ void alc_process_from_udp_packet(udp_packet_t* udp_packet) {
 	}
 
 udp_packet_free:
-	alc_packet_free(&alc_packet);
-	alc_packet = NULL;
-
+    if(alc_packet) {
+        alc_packet_free(&alc_packet);
+        alc_packet = NULL;
+    }
 error:
 cleanup:
+
+    //jjustman-2020-11-12 - this should be freed already from mmtp_*_free_packet_header_from_block_t, but just in case...
+    if(mmtp_packet_header) {
+        mmtp_packet_header_free(&mmtp_packet_header);
+    }
+
+    //jjustman-2020-11-12 - note: do not free mmtp_mpu_packet or mmtp_signalling_packet as they may have been added to a mmtp_*_packet_collection for re-assembly
+    //unless si_fragmentation_indicator == 0x0, then we can safely release, as we do not push single units to the mmtp_packet_id_packets_container->mmtp_signalling_packet_v
+    if(mmtp_signalling_packet && mmtp_signalling_packet->si_fragmentation_indicator == 0x0) {
+        mmtp_signalling_packet_free(&mmtp_signalling_packet);
+    }
+
     return udp_packet_free(&udp_packet);
 }
 
@@ -561,7 +585,7 @@ void phy_rx_udp_packet_process_callback(uint8_t plp_num, block_t* packet) {
 		return;
 	}
 
-	alc_process_from_udp_packet(udp_packet);
+	process_from_udp_packet(udp_packet);
 }
 
 
@@ -635,11 +659,15 @@ int stop_srt_rx_stltp_virtual_phy() {
 void configure_lls_sls_monitor() {
 
     lls_slt_monitor = lls_slt_monitor_create();
+	//jjustman-2021-07-01 - do not add this dummy entry, wait till we have a proper SLT for alc session and alc monitor
+
+/*
 	alc_arguments = (atsc3_alc_arguments_t*)calloc(1, sizeof(atsc3_alc_arguments_t));
     atsc3_alc_session = atsc3_open_alc_session(alc_arguments);
 
     lls_sls_alc_monitor = lls_sls_alc_monitor_create();
     lls_slt_monitor_add_lls_sls_alc_monitor(lls_slt_monitor, lls_sls_alc_monitor);
+ */
 
 }
 
@@ -659,6 +687,8 @@ int main(int argc, char* argv[] ) {
 
 	_STLTP_TYPES_DEBUG_ENABLED = 1;
 	_STLTP_TYPES_TRACE_ENABLED = 1;
+	_FDT_PARSER_DEBUG_ENABLED = 1;
+	
 #endif
 	string srt_connection_string = "srt://las.srt.atsc3.com:31351?passphrase=6E35F28D-21B8-46A4-8081-F3232D150728&packetfilter=fec";
 

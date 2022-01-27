@@ -8,9 +8,6 @@ import java.util.List;
 
 import androidx.annotation.Keep;
 
-import com.google.firebase.perf.FirebasePerformance;
-import com.google.firebase.perf.metrics.Trace;
-
 /*
     state management overview
 
@@ -107,39 +104,10 @@ public abstract class Atsc3NdkPHYClientBase {
     public native int     download_bootloader_firmware(int fd, int deviceType, String devicePath);
     public native int     open(int fd, int deviceType, String devicePath);
     public native int     open_from_capture(String filename);
+    public native int     open_from_capture_fd(String filename, int fd, long length);
     public native int     tune(int freqKhz, int single_plp);
     public native int     listen_plps(List<Byte> plps);
 
-    //jjustman-2021-01-14 - integrate firebase performance tracing
-    protected Trace phyOpenDurationTrace = null;
-    public void startPhyOpenTrace() {
-        if(phyOpenDurationTrace == null) {
-            phyOpenDurationTrace = FirebasePerformance.getInstance().newTrace("phy_open_duration");
-            phyOpenDurationTrace.putAttribute("phyName", getClass().toString());
-        }
-        phyOpenDurationTrace.start();
-    }
-
-    public void stopPhyOpenTrace() {
-        if (phyOpenDurationTrace != null) {
-            phyOpenDurationTrace.stop();
-        }
-        phyOpenDurationTrace = null;
-    }
-
-    protected Trace phyTunedDurationTrace = null;
-    public void startPhyTunedTrace(int freqKhz) {
-        if(phyTunedDurationTrace == null) {
-            phyTunedDurationTrace = FirebasePerformance.getInstance().newTrace("phy_tuned_duration");
-            phyTunedDurationTrace.putAttribute("freqKhz", Integer.toString(freqKhz));
-        }
-        phyTunedDurationTrace.start();
-    }
-
-    public void stopPhyTunedTrace() {
-        if (phyTunedDurationTrace != null) {
-            phyTunedDurationTrace.stop();
-        }
-        phyTunedDurationTrace = null;
-    }
+    public native String     get_sdk_version();
+    public native String     get_firmware_version();
 }

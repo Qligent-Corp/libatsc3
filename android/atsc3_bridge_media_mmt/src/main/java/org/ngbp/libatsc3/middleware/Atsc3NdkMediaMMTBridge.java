@@ -2,6 +2,10 @@ package org.ngbp.libatsc3.middleware;
 
 import android.util.Log;
 
+import androidx.annotation.Nullable;
+
+import com.google.protobuf.InvalidProtocolBufferException;
+
 import org.ngbp.libatsc3.middleware.android.ATSC3PlayerFlags;
 import org.ngbp.libatsc3.middleware.android.application.interfaces.IAtsc3NdkMediaMMTBridgeCallbacks;
 import org.ngbp.libatsc3.middleware.android.mmt.MfuByteBufferFragment;
@@ -9,6 +13,10 @@ import org.ngbp.libatsc3.middleware.android.mmt.MmtMovieFragmentMetadataBox_senc
 import org.ngbp.libatsc3.middleware.android.mmt.MmtPacketIdContext;
 import org.ngbp.libatsc3.middleware.android.mmt.MpuMetadata_HEVC_NAL_Payload;
 import org.ngbp.libatsc3.middleware.android.mmt.models.MMTAudioDecoderConfigurationRecord;
+import org.ngbp.libatsc3.middleware.mmt.pb.MmtAudioProperties;
+import org.ngbp.libatsc3.middleware.mmt.pb.MmtCaptionProperties;
+import org.ngbp.libatsc3.middleware.mmt.pb.MmtMpTable;
+import org.ngbp.libatsc3.middleware.mmt.pb.MmtVideoProperties;
 
 import java.nio.ByteBuffer;
 
@@ -16,7 +24,7 @@ import java.nio.ByteBuffer;
 Atsc3NdkMediaMMTBridge: for ExoPlayer plugin support
  */
 
-public class Atsc3NdkMediaMMTBridge extends Atsc3NdkMediaMMTBridgeStaticJniLoader
+public class Atsc3NdkMediaMMTBridge extends org.ngbp.libatsc3.middleware.Atsc3NdkMediaMMTBridgeStaticJniLoader
 {
     final static String TAG ="intf";
 
@@ -25,7 +33,7 @@ public class Atsc3NdkMediaMMTBridge extends Atsc3NdkMediaMMTBridgeStaticJniLoade
 
     //native jni methods
     @Override
-    public native int init();
+    public native int init(ByteBuffer fragmentBuffer, int maxFragmentCount);
 
     //free NDK/JNI bound AttachedThread, pseduo finalize()?
     @Override
@@ -33,10 +41,20 @@ public class Atsc3NdkMediaMMTBridge extends Atsc3NdkMediaMMTBridgeStaticJniLoade
 
     public native int atsc3_process_mmtp_udp_packet(ByteBuffer byteBuffer, int length);
 
-    public Atsc3NdkMediaMMTBridge(IAtsc3NdkMediaMMTBridgeCallbacks iAtsc3NdkMediaMMTBridgeCallbacks) {
+    public native void rewindBuffer();
+
+    /**
+     * Creates a Atsc3NdkMediaMMTBridge that uses fragmentBuffer to transfer media fragments or appropriate
+     * iAtsc3NdkMediaMMTBridgeCallbacks methods if fragmentBuffer is null or maxFragmentCount is zero or less.
+     * @param iAtsc3NdkMediaMMTBridgeCallbacks - bridge events callback
+     * @param fragmentBuffer - ring buffer to receive media fragments
+     * @param maxFragmentCount - count of fragments in buffer. Single buffer Page size will be calculated as
+     *                         size of fragmentBuffer devided by maxFragmentCount.
+     */
+    public Atsc3NdkMediaMMTBridge(IAtsc3NdkMediaMMTBridgeCallbacks iAtsc3NdkMediaMMTBridgeCallbacks, @Nullable ByteBuffer fragmentBuffer, int maxFragmentCount) {
         Log.w("Atsc3NdkMediaMMTBridge", "Atsc3NdkMediaMMTBridge::cctor");
         mActivity = iAtsc3NdkMediaMMTBridgeCallbacks;
-        init();
+        init(fragmentBuffer, maxFragmentCount);
     }
 
     public int onLogMsg(String msg) {
@@ -63,6 +81,11 @@ public class Atsc3NdkMediaMMTBridge extends Atsc3NdkMediaMMTBridgeStaticJniLoade
 
         mActivity.pushAudioDecoderConfigurationRecord(mmtAudioDecoderConfigurationRecord);
 
+        return 0;
+    }
+
+    public int atsc3_notify_sl_hdr_1_present(int service_id, int packet_id) {
+        mActivity.notifySlHdr1Present(service_id, packet_id);
         return 0;
     }
 
@@ -98,6 +121,71 @@ public class Atsc3NdkMediaMMTBridge extends Atsc3NdkMediaMMTBridgeStaticJniLoade
         MmtPacketIdContext.stpp_packet_signalling_information.mpu_presentation_time_microseconds = mpu_presentation_time_microseconds;
 
         return 0;
+    }
+
+    public void atsc3_onVideoStreamProperties(byte[] buffer) {
+        if(ATSC3PlayerFlags.ATSC3PlayerStartPlayback) {
+            try {
+                MmtVideoProperties.MmtVideoPropertiesDescriptor descriptor = MmtVideoProperties.MmtVideoPropertiesDescriptor.parseFrom(buffer);
+                mActivity.onVideoStreamProperties(descriptor);
+            } catch (InvalidProtocolBufferException e) {
+                e.printStackTrace();
+            }
+        } else {
+            //discard...
+        }
+    }
+
+    public void atsc3_onCaptionAssetProperties(byte[] buffer) {
+        if(ATSC3PlayerFlags.ATSC3PlayerStartPlayback) {
+            try {
+                MmtCaptionProperties.MmtCaptionPropertiesDescriptor descriptor = MmtCaptionProperties.MmtCaptionPropertiesDescriptor.parseFrom(buffer);
+                mActivity.onCaptionAssetProperties(descriptor);
+            } catch (InvalidProtocolBufferException e) {
+                e.printStackTrace();
+            }
+        } else {
+            //discard...
+        }
+    }
+
+    public void atsc3_onAudioStreamProperties(byte[] buffer) {
+        if(ATSC3PlayerFlags.ATSC3PlayerStartPlayback) {
+            try {
+                MmtAudioProperties.MmtAudioPropertiesDescriptor descriptor = MmtAudioProperties.MmtAudioPropertiesDescriptor.parseFrom(buffer);
+                mActivity.onAudioStreamProperties(descriptor);
+            } catch (InvalidProtocolBufferException e) {
+                e.printStackTrace();
+            }
+        } else {
+            //discard...
+        }
+    }
+
+    public void atsc3_onMpTableSubset(byte[] buffer) {
+        if(ATSC3PlayerFlags.ATSC3PlayerStartPlayback) {
+            try {
+                MmtMpTable.MmtAssetTable table = MmtMpTable.MmtAssetTable.parseFrom(buffer);
+                mActivity.onMpTableSubset(table);
+            } catch (InvalidProtocolBufferException e) {
+                e.printStackTrace();
+            }
+        } else {
+            //discard...
+        }
+    }
+
+    public void atsc3_onMpTableComplete(byte[] buffer) {
+        if(ATSC3PlayerFlags.ATSC3PlayerStartPlayback) {
+            try {
+                MmtMpTable.MmtAssetTable table = MmtMpTable.MmtAssetTable.parseFrom(buffer);
+                mActivity.onMpTableComplete(table);
+            } catch (InvalidProtocolBufferException e) {
+                e.printStackTrace();
+            }
+        } else {
+            //discard...
+        }
     }
 
     public int atsc3_onExtractedSampleDuration(int packet_id, long mpu_sequence_number, long extracted_sample_duration_us) {

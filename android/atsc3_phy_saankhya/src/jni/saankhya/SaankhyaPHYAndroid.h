@@ -45,7 +45,16 @@ using namespace std;
 
 #define SL_DEVICE_TYPE_MARKONE        0
 #define SL_DEVICE_TYPE_FX3_KAILASH    1
-#define SL_DEVICE_TYPE_FX3_YOGA       3
+#define SL_DEVICE_TYPE_FX3_KAILASH_2  2
+
+//jjustman-2022-01-04 - TODO: this should be FX3_SILISA  -> SL_SILISA_DONGLE
+
+#define SL_DEVICE_TYPE_FX3_KAILASH_3  3
+#define SL_DEVICE_TYPE_FX3_YOGA       4
+
+//justman-2021-10-24 - hack!
+#define JJ_DEVICE_TYPE_USE_FROM_LAST_DOWNLOAD_BOOTLOADER_FIRMWARE 31337
+
 
 #include "CircularBuffer.h"
 
@@ -61,7 +70,10 @@ using namespace std;
 #include <sl_gpio.h>
 #include <sl_demod.h>
 #include <sl_utils.h>
-#include <sl_atsc3_diag.h>
+#include <sl_demod_atsc3.h>
+
+//jjustman-2021-12-11 - slref/fx3s
+#include <sl_ref_fx3s.h>
 
 //jjustman-2021-03-02 - dispatch reconfigure for markone methods
 #include <sl_cust_markone_dispatcher.h>
@@ -108,10 +120,16 @@ public:
     //jjustman-2021-06-07 - from demod_start
     string                  demodVersion;
 
-    //jjustman-2021-03-03   this is expected to be always accurate, when using, be sure to acquire SL_plpConfigParams_mutex, and SL_I2c_command_mutex, if necessary
-    SL_PlpConfigParams_t    plpInfo;
+    SL_AfeIfConfigParams_t          afeInfo;
+    SL_OutIfConfigParams_t          outPutInfo;
+    SL_IQOffsetCorrectionParams_t   iqOffSetCorrection = { 1.0, 1.0, 0.0, 0.0} ;
 
-    SL_Atsc3p0Region_t      regionInfo;
+    SL_ExtLnaConfigParams_t         lnaInfo = {.lnaMode = SL_EXT_LNA_CFG_MODE_NOT_PRESENT, .lnaGpioNum=0 };
+
+    SL_DemodStd_t                   demodStandard = { SL_DEMODSTD_ATSC3_0 };
+
+    //jjustman-2021-03-03   this is expected to be always accurate, when using, be sure to acquire SL_plpConfigParams_mutex, and SL_I2c_command_mutex, if necessary
+    SL_Atsc3p0ConfigParams_t        atsc3ConfigParams;
 
     //status thread details - use statusMetricsResetFromContextChange to initalize or to reset when tune() is completed or when PLP selection has changed
     SL_TunerSignalInfo_t    tunerInfo;
@@ -147,9 +165,17 @@ protected:
 
 private:
 
+    //sanjay
+    bool kailash_3_rssi = false;
+
+    //jjustman-2021-10-24 - super-hacky workaround for preboot firmware d/l and proper device type open on re-enumeration call for now..
+    static int Last_download_bootloader_firmware_device_id;
+
     int slUnit = -1;
-    int tUnit = -1;
+    int tUnit = SL_TUNER_NIL_INSTANCE;
     int slCmdIfFailureCount = 0;
+
+    int markone_evt_version = -1;
 
     SL_PlatFormConfigParams_t getPlfConfig = SL_PLATFORM_CONFIG_PARAMS_NULL_INITIALIZER;
     SL_PlatFormConfigParams_t sPlfConfig   = SL_PLATFORM_CONFIG_PARAMS_NULL_INITIALIZER;
@@ -168,11 +194,16 @@ private:
     unsigned long long        llsPlpMask = 0x1;
     int                       plpInfoVal = 0, plpllscount = 0;
 
+    int                       last_l1bTimeInfoFlag = -1;
+    uint64_t                  last_l1dTimeNs_value = 0;
+
     SL_DemodConfigInfo_t cfgInfo;
 
     SL_TunerConfig_t tunerCfg;
     SL_TunerConfig_t tunerGetCfg;
-    SL_TunerDcOffSet_t tunerIQDcOffSet;
+
+    //jjustman-2021-11-09 - set "default" tunerIQDcOffset values here, overwritten as needed in hw/device specific configurations
+    SL_TunerDcOffSet_t tunerIQDcOffSet = { 15, 14 };
 
     //uses      pinProducerThreadAsNeeded
     int         captureThread();
@@ -226,14 +257,17 @@ private:
 
     SL_ConfigResult_t configPlatformParams_aa_fx3();
     SL_ConfigResult_t configPlatformParams_aa_markone();
-    SL_ConfigResult_t configPlatformParams_bb_fx3();
+    SL_ConfigResult_t configPlatformParams_kailash_3_bb_fx3();
+    SL_ConfigResult_t configPlatformParams_yoga_bb_fx3();
+    SL_ConfigResult_t configPlatformParams_bb_markone();
+
 
     void printToConsolePlfConfiguration(SL_PlatFormConfigParams_t cfgInfo);
     void printToConsoleDemodConfiguration(SL_DemodConfigInfo_t cfgInfo);
 
-    void printToConsoleI2cError(SL_I2cResult_t err);
-    void printToConsoleTunerError(SL_TunerResult_t err);
-    void printToConsoleDemodError(SL_Result_t err);
+    void printToConsoleI2cError(const char* methodName, SL_I2cResult_t err);
+    void printToConsoleTunerError(const char* methodName, SL_TunerResult_t err);
+    void printToConsoleDemodError(const char* methodName, SL_Result_t err);
 
     void handleCmdIfFailure(void);
 
@@ -255,7 +289,20 @@ private:
 
     //jjustman-2021-06-07 # 11798: compute global/l1b/l1d/plpN SNR metrics
     double compute_snr(int snr_linear_scale);
+
+    //jjustman-2021-08-31 - testing for l1d time info diagnostics
+    void printToConsoleAtsc3L1dDiagnostics(SL_Atsc3p0L1D_Diag_t diag);
+
 };
+
+#define _SAANKHYA_PHY_ANDROID_ERROR_NOTIFY_BRIDGE_INSTANCE(method, message, cmd_res) \
+    if(atsc3_ndk_phy_bridge_get_instance()) { \
+        atsc3_ndk_phy_bridge_get_instance()->atsc3_notify_phy_error("SaankhyaPHYAndroid::%s - ERROR: %s, global_sl_res: %d, global_sl_i2c_res: %d, cmd res: %d", \
+        method, message, global_sl_result_error_flag, global_sl_i2c_result_error_flag, cmd_res); \
+    } \
+    __LIBATSC3_TIMESTAMP_ERROR("SaankhyaPHYAndroid::%s - ERROR: %s, global_sl_res: %d, global_sl_i2c_res: %d, cmd_res: %d", \
+        method, message, global_sl_result_error_flag, global_sl_i2c_result_error_flag, cmd_res);
+
 
 #define _SAANKHYA_PHY_ANDROID_ERROR(...)   	__LIBATSC3_TIMESTAMP_ERROR(__VA_ARGS__);
 #define _SAANKHYA_PHY_ANDROID_WARN(...)   	__LIBATSC3_TIMESTAMP_WARN(__VA_ARGS__);

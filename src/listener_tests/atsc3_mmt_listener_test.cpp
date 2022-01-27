@@ -88,6 +88,11 @@ void process_packet(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char
 			//dump header, then dump applicable packet type
 			if(mmtp_packet_header->mmtp_payload_type == 0x0) {
 				mmtp_mpu_packet_t* mmtp_mpu_packet = mmtp_mpu_packet_parse_from_block_t(mmtp_packet_header, udp_packet->data);
+				if(!mmtp_mpu_packet) {
+					__ATSC3_ERROR("process_packet: mmtp_mpu_packet_parse_from_block_t: returned mmtp_mpu_packet is NULL!");
+					goto cleanup;
+					
+				}
 				if(mmtp_mpu_packet->mpu_timed_flag == 1) {
 					mmtp_mpu_dump_header(mmtp_mpu_packet);
 				} else {

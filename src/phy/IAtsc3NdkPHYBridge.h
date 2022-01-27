@@ -25,13 +25,12 @@ class IAtsc3NdkPHYBridge {
 
         //moving to "friend" scope
         virtual void atsc3_update_rf_stats(int32_t tuner_lock,    //1
-                                      int32_t rssi,
+                                      int32_t rssi_1000,
                                       uint8_t modcod_valid,
                                       uint8_t plp_fec_type,
                                       uint8_t plp_mod,
                                       uint8_t plp_cod,
-                                      int32_t nRfLevel1000,
-                                      int32_t nSnr1000,
+                                      int32_t nSnr_1000,
                                       uint32_t ber_pre_ldpc_e7,
                                       uint32_t ber_pre_bch_e9,
                                       uint32_t fer_post_bch_e6,
@@ -44,7 +43,9 @@ class IAtsc3NdkPHYBridge {
 
         virtual void atsc3_update_rf_bw_stats(uint64_t total_pkts, uint64_t total_bytes, unsigned int total_lmts) = 0;
 
-        //application callbacks - mapped to native method for Android
+        virtual void atsc3_update_l1d_time_information(uint8_t l1B_time_info_flag, uint32_t l1D_time_sec, uint16_t l1D_time_msec, uint16_t l1D_time_usec, uint16_t l1D_time_nsec) = 0;
+
+    //application callbacks - mapped to native method for Android
         virtual void setRfPhyStatisticsViewVisible(bool isRfPhyStatisticsVisible) = 0;
 
         virtual int pinCaptureThreadAsNeeded() = 0;

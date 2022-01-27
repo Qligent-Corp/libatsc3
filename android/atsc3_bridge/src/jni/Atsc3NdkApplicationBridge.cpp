@@ -515,7 +515,7 @@ void Atsc3NdkApplicationBridge::atsc3_lls_sls_alc_on_package_extract_completed_c
 }
 
 
-void Atsc3NdkApplicationBridge::atsc3_onSltTablePresent(const char* slt_payload_xml) {
+void Atsc3NdkApplicationBridge::atsc3_onSltTablePresent(uint8_t lls_table_id, uint8_t lls_table_version, uint8_t lls_group_id, const char* slt_payload_xml) {
     if (!atsc3_onSltTablePresent_ID) {
         _NDK_APPLICATION_BRIDGE_ERROR("atsc3_onSltTablePresent_ID: %p", atsc3_onSltTablePresent_ID);
         return;
@@ -535,7 +535,7 @@ void Atsc3NdkApplicationBridge::atsc3_onSltTablePresent(const char* slt_payload_
 
 
     jstring xml_payload = bridgeConsumerJniEnv->Get()->NewStringUTF(slt_payload_xml);
-    int r = bridgeConsumerJniEnv->Get()->CallIntMethod(jni_instance_globalRef, atsc3_onSltTablePresent_ID, xml_payload);
+    int r = bridgeConsumerJniEnv->Get()->CallIntMethod(jni_instance_globalRef, atsc3_onSltTablePresent_ID, lls_table_id, lls_table_version, lls_group_id, xml_payload);
     bridgeConsumerJniEnv->Get()->DeleteLocalRef(xml_payload);
 }
 
@@ -549,7 +549,7 @@ void Atsc3NdkApplicationBridge::atsc3_onAeatTablePresent(const char *aeat_payloa
     }
 
     if (!bridgeConsumerJniEnv) {
-		_NDK_APPLICATION_BRIDGE_ERROR("Atsc3NdkApplicationBridge::atsc3_onSlsHeldEmissionPresent: bridgeConsumerJniEnv is NULL");
+		_NDK_APPLICATION_BRIDGE_ERROR("Atsc3NdkApplicationBridge::atsc3_onAeatTablePresent: bridgeConsumerJniEnv is NULL");
         return;
     }
 
@@ -557,7 +557,6 @@ void Atsc3NdkApplicationBridge::atsc3_onAeatTablePresent(const char *aeat_payloa
     int r = bridgeConsumerJniEnv->Get()->CallIntMethod(jni_instance_globalRef, atsc3_onAeatTablePresent_ID, xml_payload);
     bridgeConsumerJniEnv->Get()->DeleteLocalRef(xml_payload);
 }
-
 
 void Atsc3NdkApplicationBridge::atsc3_onSlsHeldEmissionPresent(uint16_t service_id, const char *held_payload_xml) {
 	if (!atsc3_onSlsHeldEmissionPresent_ID)
@@ -619,7 +618,7 @@ Java_org_ngbp_libatsc3_middleware_Atsc3NdkApplicationBridge_init(JNIEnv *env, jo
     }
 
     //atsc3_onSltTablePresent_ID
-    apiAppBridge->atsc3_onSltTablePresent_ID = env->GetMethodID(jniClassReference, "atsc3_onSltTablePresent", "(Ljava/lang/String;)I");
+    apiAppBridge->atsc3_onSltTablePresent_ID = env->GetMethodID(jniClassReference, "atsc3_onSltTablePresent", "(IIILjava/lang/String;)I");
     if (apiAppBridge->atsc3_onSltTablePresent_ID == NULL) {
         _NDK_APPLICATION_BRIDGE_ERROR("Atsc3NdkApplicationBridge_init: cannot find 'atsc3_onSltTablePresent_ID' method id");
         return -1;
@@ -684,6 +683,14 @@ Java_org_ngbp_libatsc3_middleware_Atsc3NdkApplicationBridge_init(JNIEnv *env, jo
         return -1;
     } else {
        apiAppBridge->packageExtractEnvelopeMetadataAndPayload_MultipartRelatedPayload_jclass_global_ref = (jclass)(env->NewGlobalRef(apiAppBridge->packageExtractEnvelopeMetadataAndPayload_MultipartRelatedPayload_jclass_init_env));
+    }
+
+    apiAppBridge->atsc3_nkd_app_bridge_system_properties_jclass_init_env = env->FindClass("org/ngbp/libatsc3/middleware/android/application/models/AndroidSystemProperties");
+    if (apiAppBridge->atsc3_nkd_app_bridge_system_properties_jclass_init_env == NULL) {
+        _NDK_APPLICATION_BRIDGE_ERROR("Atsc3NdkApplicationBridge_init: cannot find 'SystemProperties' class reference");
+        return -1;
+    } else {
+        apiAppBridge->atsc3_nkd_app_bridge_system_properties_jclass_global_ref = (jclass)(env->NewGlobalRef(apiAppBridge->atsc3_nkd_app_bridge_system_properties_jclass_init_env));
     }
 
     apiAppBridge->jni_java_util_ArrayList = (jclass) env->NewGlobalRef(env->FindClass("java/util/ArrayList"));
@@ -774,4 +781,57 @@ Java_org_ngbp_libatsc3_middleware_Atsc3NdkApplicationBridge_atsc3_1slt_1alc_1get
     }
 
     return slt_alc_sls_route_s_tsid_fdt_file_content_locations_jni;
+}
+
+extern "C"
+JNIEXPORT jobject JNICALL
+Java_org_ngbp_libatsc3_middleware_Atsc3NdkApplicationBridge_atsc3_1slt_1alc_1get_1system_1properties(
+        JNIEnv *env, jobject thiz) {
+
+    jclass jcls = apiAppBridge->atsc3_nkd_app_bridge_system_properties_jclass_global_ref;
+    jobject jobj = env->AllocObject(jcls);
+
+    if(!jobj) {
+        _NDK_APPLICATION_BRIDGE_ERROR("Atsc3NdkApplicationBridge:get_system_properties::err unable to allocate atsc3_nkd_app_bridge_system_properties_jclass_global_ref instance jobj!");
+        return nullptr;
+    }
+
+    libatsc3_android_system_properties_t properties = apiAppBridge->getAndroidSystemProperties();
+
+    jstring boot_serialno = env->NewStringUTF(properties.boot_serialno_str);
+    env->SetObjectField(jobj, env->GetFieldID(jcls, "boot_serialno_str", "Ljava/lang/String;"), boot_serialno);
+
+    jstring serialno = env->NewStringUTF(properties.serialno_str);
+    env->SetObjectField(jobj, env->GetFieldID(jcls, "serialno_str", "Ljava/lang/String;"), serialno);
+
+    jstring board_platform = env->NewStringUTF(properties.board_platform_str);
+    env->SetObjectField(jobj, env->GetFieldID(jcls, "board_platform_str", "Ljava/lang/String;"), board_platform);
+
+    jstring build_description = env->NewStringUTF(properties.build_description_str);
+    env->SetObjectField(jobj, env->GetFieldID(jcls, "build_description_str", "Ljava/lang/String;"), build_description);
+
+    jstring build_flavor = env->NewStringUTF(properties.build_flavor_str);
+    env->SetObjectField(jobj, env->GetFieldID(jcls, "build_flavor_str", "Ljava/lang/String;"), build_flavor);
+
+    jstring build_product = env->NewStringUTF(properties.build_product_str);
+    env->SetObjectField(jobj, env->GetFieldID(jcls, "build_product_str", "Ljava/lang/String;"), build_product);
+
+    jstring build_version_incremental = env->NewStringUTF(properties.build_version_incremental_str);
+    env->SetObjectField(jobj, env->GetFieldID(jcls, "build_version_incremental_str", "Ljava/lang/String;"), build_version_incremental);
+
+    jstring product_cpu_abi = env->NewStringUTF(properties.product_cpu_abi_str);
+    env->SetObjectField(jobj, env->GetFieldID(jcls, "product_cpu_abi_str", "Ljava/lang/String;"), product_cpu_abi);
+
+    jstring product_mfg = env->NewStringUTF(properties.product_mfg_str);
+    env->SetObjectField(jobj, env->GetFieldID(jcls, "product_mfg_str", "Ljava/lang/String;"), product_mfg);
+
+    jstring build_version_release = env->NewStringUTF(properties.build_version_release_str);
+    env->SetObjectField(jobj, env->GetFieldID(jcls, "build_version_release_str", "Ljava/lang/String;"), build_version_release);
+    env->SetIntField(jobj, env->GetFieldID(jcls, "android_version", "I"), properties.android_version);
+
+    jstring sdk_ver = env->NewStringUTF(properties.sdk_ver_str);
+    env->SetObjectField(jobj, env->GetFieldID(jcls, "sdk_ver_str", "Ljava/lang/String;"), sdk_ver);
+    env->SetIntField(jobj, env->GetFieldID(jcls, "sdk_ver", "I"), properties.sdk_ver);
+
+    return jobj;
 }

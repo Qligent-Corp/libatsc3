@@ -69,7 +69,7 @@ public:
 
     void atsc3_lls_sls_alc_on_route_mpd_patched_jni(uint16_t service_id) override;
 
-    void atsc3_onSltTablePresent(const char *slt_payload_xml) override;
+    void atsc3_onSltTablePresent(uint8_t lls_table_id, uint8_t lls_table_version, uint8_t lls_group_id, const char *slt_payload_xml) override;
     void atsc3_onAeatTablePresent(const char* aeat_payload_xml) override;
     void atsc3_onSlsHeldEmissionPresent(uint16_t service_id, const char *held_payload) override;
 
@@ -111,6 +111,10 @@ public:
         return jni_class_globalRef;
     }
 
+    libatsc3_android_system_properties_t getAndroidSystemProperties() {
+        return libatsc3_android_system_properties;
+    }
+
     int pinConsumerThreadAsNeeded() override;
     int releasePinnedConsumerThreadAsNeeded() override;
 
@@ -140,6 +144,9 @@ public:
 
     atsc3_phy_notify_plp_selection_change_f    atsc3_phy_notify_plp_selection_change = nullptr;;
     void*                                      atsc3_phy_notify_plp_selection_change_context = nullptr;;
+
+    jclass    atsc3_nkd_app_bridge_system_properties_jclass_init_env = nullptr;
+    jclass    atsc3_nkd_app_bridge_system_properties_jclass_global_ref = nullptr;
 
 protected:
     Atsc3JniEnv* bridgeConsumerJniEnv = nullptr;

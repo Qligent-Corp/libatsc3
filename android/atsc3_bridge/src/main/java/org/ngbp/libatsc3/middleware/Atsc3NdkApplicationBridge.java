@@ -4,6 +4,7 @@ import android.util.Log;
 
 import org.ngbp.libatsc3.middleware.android.a331.PackageExtractEnvelopeMetadataAndPayload;
 import org.ngbp.libatsc3.middleware.android.application.interfaces.IAtsc3NdkApplicationBridgeCallbacks;
+import org.ngbp.libatsc3.middleware.android.application.models.AndroidSystemProperties;
 
 import java.io.File;
 
@@ -42,6 +43,8 @@ public class Atsc3NdkApplicationBridge extends Atsc3BridgeNdkStaticJniLoader
     public native String[] atsc3_slt_alc_get_sls_metadata_fragments_content_locations_from_monitor_service_id(int service_id, String to_match_content_type);
     public native String[] atsc3_slt_alc_get_sls_route_s_tsid_fdt_file_content_locations_from_monitor_service_id(int service_id);
 
+    public native AndroidSystemProperties atsc3_slt_alc_get_system_properties();      //clear ALC additional service listeners
+
     public Atsc3NdkApplicationBridge(IAtsc3NdkApplicationBridgeCallbacks iAtsc3NdkApplicationBridgeCallbacks) {
         mActivity = iAtsc3NdkApplicationBridgeCallbacks;
         init();
@@ -53,9 +56,8 @@ public class Atsc3NdkApplicationBridge extends Atsc3BridgeNdkStaticJniLoader
         return 0;
     }
 
-    int atsc3_onSltTablePresent(String slt_payload_xml) {
-
-        mActivity.onSltTablePresent(slt_payload_xml);
+    int atsc3_onSltTablePresent(int table_id, int table_version, int group_id, String slt_payload_xml) {
+        mActivity.onSltTablePresent(table_id, table_version, group_id, slt_payload_xml);
         return 0;
     }
 

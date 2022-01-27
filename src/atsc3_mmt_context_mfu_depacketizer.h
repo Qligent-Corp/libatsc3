@@ -30,13 +30,23 @@ extern "C" {
  */
 typedef struct atsc3_mmt_mfu_context atsc3_mmt_mfu_context_t;
 
+//jjustman-2021-10-21 - internal_sei: return sei message payload as needed...
+typedef bool (*mmt_mpu_mfu_on_sample_complete_sei_scan_for_sl_hdr_sei_itu_t_35_and_terminal_provider_code_internal_f) (block_t* mmt_mfu_sample);
+//external_sei:
+typedef void (*mmt_mpu_mfu_sei_scan_for_sl_hdr_sei_itu_t_35_and_terminal_provider_code_detected_f) (atsc3_mmt_mfu_context_t* atsc3_mmt_mfu_context, uint16_t packet_id, uint32_t mmtp_timestamp, uint32_t mpu_sequence_number, uint32_t sample_number);
+
 typedef void (*atsc3_mmt_mpu_mfu_on_sample_complete_f) (atsc3_mmt_mfu_context_t* atsc3_mmt_mfu_context, uint16_t packet_id, uint32_t mmtp_timestamp, uint32_t mpu_sequence_number, uint32_t sample_number, block_t* mmt_mfu_sample, uint32_t mfu_fragment_count_rebuilt);
 typedef void (*atsc3_mmt_mpu_mfu_on_sample_corrupt_f)  (atsc3_mmt_mfu_context_t* atsc3_mmt_mfu_context, uint16_t packet_id, uint32_t mmtp_timestamp, uint32_t mpu_sequence_number, uint32_t sample_number, block_t* mmt_mfu_sample, uint32_t mfu_fragment_count_expected, uint32_t mfu_fragment_count_rebuilt);
 typedef void (*atsc3_mmt_mpu_mfu_on_sample_corrupt_mmthsample_header_f) (atsc3_mmt_mfu_context_t* atsc3_mmt_mfu_context, uint16_t packet_id, uint32_t mmtp_timestamp, uint32_t mpu_sequence_number, uint32_t sample_number, block_t* mmt_mfu_sample,  uint32_t mfu_fragment_count_expected, uint32_t mfu_fragment_count_rebuilt);
 typedef void (*atsc3_mmt_mpu_mfu_on_sample_missing_f)  (atsc3_mmt_mfu_context_t* atsc3_mmt_mfu_context, uint16_t packet_id, uint32_t mpu_sequence_number, uint32_t sample_number);
 
-typedef bool (*atsc3_mmt_signalling_information_on_routecomponent_message_present_f) (atsc3_mmt_mfu_context_t* atsc3_mmt_mfu_context, mmt_atsc3_route_component_t* mmt_atsc3_route_component);
-typedef void (*atsc3_mmt_signalling_information_on_held_message_present_f) (atsc3_mmt_mfu_context_t* atsc3_mmt_mfu_context, mmt_atsc3_held_message_t* mmt_atsc3_held_message);
+typedef void (*atsc3_mmt_signalling_information_on_userservicedescription_present_f)				(atsc3_mmt_mfu_context_t* atsc3_mmt_mfu_context, mmt_atsc3_signalling_information_usbd_component_t* mmt_atsc3_usbd_message);
+typedef bool (*atsc3_mmt_signalling_information_on_routecomponent_message_present_f)				(atsc3_mmt_mfu_context_t* atsc3_mmt_mfu_context, mmt_atsc3_route_component_t* mmt_atsc3_route_component);
+typedef void (*atsc3_mmt_signalling_information_on_held_message_present_f) 							(atsc3_mmt_mfu_context_t* atsc3_mmt_mfu_context, mmt_atsc3_held_message_t* mmt_atsc3_held_message);
+typedef void (*atsc3_mmt_signalling_information_on_video_stream_properties_descriptor_present_f) 	(atsc3_mmt_mfu_context_t* atsc3_mmt_mfu_context, mmt_atsc3_message_content_type_video_stream_properties_descriptor_t* mmt_atsc3_video_stream_properties_descriptor_message);
+typedef void (*atsc3_mmt_signalling_information_on_caption_asset_descriptor_present_f) 				(atsc3_mmt_mfu_context_t* atsc3_mmt_mfu_context, mmt_atsc3_message_content_type_caption_asset_descriptor_t* mmt_atsc3_caption_asset_descriptor_message);
+typedef void (*atsc3_mmt_signalling_information_on_audio_stream_properties_descriptor_present_f) 	(atsc3_mmt_mfu_context_t* atsc3_mmt_mfu_context, mmt_atsc3_message_content_type_audio_stream_properties_descriptor_t* mmt_atsc3_audio_stream_properties_descriptor_message);
+typedef void (*atsc3_mmt_signalling_information_on_security_properties_descriptor_LAURL_present_f) 	(atsc3_mmt_mfu_context_t* atsc3_mmt_mfu_context, mmt_atsc3_message_content_type_security_properties_descriptor_LAURL_t* mmt_atsc3_security_properties_descriptor_LAURL_message);
 
 /*
  * From: https://tools.ietf.org/html/rfc5905#section-6
@@ -59,9 +69,19 @@ typedef struct atsc3_mmt_mfu_mpu_timestamp_descriptor {
 
 	//jjustman-2021-01-19 - for when we "recover" the mpu_presentation_time values by a differential of the most recent <packet_id, mpu_sequence_number, mpu_presentation_time_ntp64>
 	bool 		mpu_presentation_time_computed_from_recovery_mmtp_timestamp_flag;
-	uint32_t	recovery_mmtp_timestamp;
-	uint32_t	recovery_mpu_sequence_number;
-	uint64_t	recovery_mpu_presentation_time_ntp64;
+
+    //jjustman-2021-10-05 - YOGA #16967 - in non-recovery cases, this value should be 0, otherwise
+    // keep track of our sample number if we have been created from an interpolated recovery timestamp descriptor
+    // so we can properly re-base to a correct sample[0] mpu_presentation_t
+
+    uint32_t	recovery_detected_at_mmtp_timestamp;
+    uint32_t    recovery_interpolated_from_sample_number;
+    uint32_t	recovery_interpolated_to_mmtp_timestamp_delta_ntp32;
+
+	uint32_t	recovery_anchor_mmtp_timestamp;
+	uint32_t	recovery_anchor_mpu_sequence_number;
+	uint32_t    recovery_anchor_sample_number;
+	uint64_t	recovery_anchor_mpu_presentation_time_ntp64;
 
 } atsc3_mmt_mfu_mpu_timestamp_descriptor_t;
 
@@ -99,6 +119,15 @@ typedef struct atsc3_mmt_mfu_context {
 	//INTERNAL event callbacks
     atsc3_mmt_signalling_information_on_packet_id_with_mpu_timestamp_descriptor_internal_f		        		atsc3_mmt_signalling_information_on_packet_id_with_mpu_timestamp_descriptor_internal;
 
+
+    struct atsc3_mmt_mfu_context_callbacks_internal_sei {
+        mmt_mpu_mfu_on_sample_complete_sei_scan_for_sl_hdr_sei_itu_t_35_and_terminal_provider_code_internal_f   mmt_mpu_mfu_on_sample_complete_sei_scan_for_sl_hdr_sei_itu_t_35_and_terminal_provider_code_internal;
+    } internal_sei;
+
+    struct atsc3_mmt_mfu_context_callbacks_external_sei {
+        mmt_mpu_mfu_sei_scan_for_sl_hdr_sei_itu_t_35_and_terminal_provider_code_detected_f                      mmt_mpu_mfu_sei_scan_for_sl_hdr_sei_itu_t_35_and_terminal_provider_code_detected;
+    } external_sei;
+
 	//EXTERNAL helper methods
 	atsc3_get_mpu_timestamp_from_packet_id_mpu_sequence_number_f												get_mpu_timestamp_from_packet_id_mpu_sequence_number;
 	atsc3_get_mpu_timestamp_from_packet_id_mpu_sequence_number_with_mmtp_timestamp_recovery_differential_f		get_mpu_timestamp_from_packet_id_mpu_sequence_number_with_mmtp_timestamp_recovery_differential;
@@ -110,6 +139,7 @@ typedef struct atsc3_mmt_mfu_context {
     atsc3_mmt_mpu_on_sequence_mpu_metadata_present_f               										atsc3_mmt_mpu_on_sequence_mpu_metadata_present;			//dispatched when a new mpu_metadata (init box) is present and re-constituted
     																														//use atsc3_hevc_nal_extractor to convert init to NAL's as needed for HEVC decoder
 	//from ATSC3_MMT_CONTEXT_SIGNALLING_INFORMATION_DEPACKETIZER_H
+	//ISO23008-1 SI messages
 	atsc3_mmt_signalling_information_on_mp_table_subset_f 												atsc3_mmt_signalling_information_on_mp_table_subset; 	//dispatched when table_id >= 0x11 (17) && table_id <= 0x19 (31)
 	atsc3_mmt_signalling_information_on_mp_table_complete_f 											atsc3_mmt_signalling_information_on_mp_table_complete; 	//dispatched when table_id == 0x20 (32)
 
@@ -122,6 +152,8 @@ typedef struct atsc3_mmt_mfu_context {
 	atsc3_mmt_signalling_information_on_stpp_packet_id_with_mpu_timestamp_descriptor_f					atsc3_mmt_signalling_information_on_stpp_packet_id_with_mpu_timestamp_descriptor;
 
 	atsc3_mmt_signalling_information_on_mpu_timestamp_descriptor_f 										atsc3_mmt_signalling_information_on_mpu_timestamp_descriptor;
+	
+	//A/331:2021 SI messages (e.g. table_id >=8100)
 
 	//MFU specific callbacks
 	atsc3_mmt_mpu_mfu_on_sample_complete_f 																atsc3_mmt_mpu_mfu_on_sample_complete;                   //REQUIRED: callback to decoder with a fully recovered MFU sample, no DU loss
@@ -132,9 +164,28 @@ typedef struct atsc3_mmt_mfu_context {
 	//Lastly, in the spirit of OOO MMT, movie fragment metadata comes last and should only be used as a last resort...
 	atsc3_mmt_mpu_on_sequence_movie_fragment_metadata_present_f                                         atsc3_mmt_mpu_on_sequence_movie_fragment_metadata_present;
 
-    atsc3_mmt_signalling_information_on_routecomponent_message_present_f                                atsc3_mmt_signalling_information_on_routecomponent_message_present;
-    mmt_atsc3_route_component_t*                                                                        mmt_atsc3_route_component_monitored;
+	//MMT_ATSC3_MESSAGE_CONTENT_TYPE_UserServiceDescription: mmt_atsc3_message_content_type == 0x0001 -> mmt_atsc3_signalling_information_usbd_component_t
+	atsc3_mmt_signalling_information_on_userservicedescription_present_f                                atsc3_mmt_signalling_information_on_userservicedescription_present;
+	//return: assign_routecomponent_payload_to_context
+	atsc3_mmt_signalling_information_on_routecomponent_message_present_f                                atsc3_mmt_signalling_information_on_routecomponent_message_present;
+	mmt_atsc3_route_component_t*                                                                        mmt_atsc3_route_component_monitored;
+
+	//jjustman-2021-09-14 - TODO: add in callbacks for AEI -> 0x0004
+
+	//MMT_ATSC3_MESSAGE_CONTENT_TYPE_HELD
     atsc3_mmt_signalling_information_on_held_message_present_f                                          atsc3_mmt_signalling_information_on_held_message_present;
+	
+	//MMT_ATSC3_MESSAGE_CONTENT_TYPE_VIDEO_STREAM_PROPERTIES_DESCRIPTOR
+	atsc3_mmt_signalling_information_on_video_stream_properties_descriptor_present_f                    mmt_atsc3_message_content_type_video_stream_properties_descriptor_present;
+
+	//MMT_ATSC3_MESSAGE_CONTENT_TYPE_CAPTION_ASSET_DESCRIPTOR
+	atsc3_mmt_signalling_information_on_caption_asset_descriptor_present_f                  	 		atsc3_mmt_signalling_information_on_caption_asset_descriptor_present;
+
+	//MMT_ATSC3_MESSAGE_CONTENT_TYPE_AUDIO_STREAM_PROPERTIES_DESCRIPTOR
+	atsc3_mmt_signalling_information_on_audio_stream_properties_descriptor_present_f                    atsc3_mmt_signalling_information_on_audio_stream_properties_descriptor_present;
+
+	//MMT_ATSC3_MESSAGE_CONTENT_TYPE_SECURITY_PROPERTIES_DESCRIPTOR_LAURL
+	atsc3_mmt_signalling_information_on_security_properties_descriptor_LAURL_present_f                  atsc3_mmt_signalling_information_on_security_properties_descriptor_LAURL_present;
 
 	//jjustman-2020-12-24 - TODO: relax this tight coupling from atsc3 to mmt package
 	//shared pointers that we don't own
@@ -162,7 +213,7 @@ atsc3_mmt_mfu_mpu_timestamp_descriptor_t* atsc3_get_mpu_timestamp_from_packet_id
 
 //jjustman-2021-01-19 - get our mpu_timestamp_descriptor, either from the SI messsage or from recovering via mmtp_timestamp differential if our SI message was lost
 //		note: injects a "synthetic" mpu_timestamp_descriptor for durability in the condition of a possibly sustained SI message loss
-atsc3_mmt_mfu_mpu_timestamp_descriptor_t* atsc3_get_mpu_timestamp_from_packet_id_mpu_sequence_number_with_mmtp_timestamp_recovery_differential(atsc3_mmt_mfu_context_t* atsc3_mmt_mfu_context, uint16_t packet_id, uint32_t mmtp_timestamp, uint32_t mpu_sequence_number);
+atsc3_mmt_mfu_mpu_timestamp_descriptor_t* atsc3_get_mpu_timestamp_from_packet_id_mpu_sequence_number_with_mmtp_timestamp_recovery_differential(atsc3_mmt_mfu_context_t* atsc3_mmt_mfu_context, uint16_t packet_id, uint32_t mmtp_timestamp, uint32_t mpu_sequence_number, uint32_t sample_number);
 
 //jjustman-2021-06-09 - #12416 - MMT DRM support - TODO: FIX me to update RP with OOO support, this is implicity IN-ORDER due to the 'senc' box being required for decoder sample IV and encryption subsample offsets
 block_t* atsc3_mmt_movie_fragment_extract_senc_payload_blockt(block_t* mmt_movie_fragment_metadata);

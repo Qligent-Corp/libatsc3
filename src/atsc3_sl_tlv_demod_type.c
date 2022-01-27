@@ -9,8 +9,11 @@ int _SL_TLV_DEMOD_DEBUG_ENABLED = 0;
 int _SL_TLV_DEMOD_TRACE_ENABLED = 0;
 
 //jjustman-2021-05-04 - tested working int
-__ATSC3_SL_TLV_USE_INLINE_ALP_PARSER_CALL__ = 1;
+int __ATSC3_SL_TLV_USE_INLINE_ALP_PARSER_CALL__ = 1;
 //int __ATSC3_SL_TLV_USE_INLINE_ALP_PARSER_CALL__ = 0;
+
+//jjustman-2021-11-03 - extract l1d_timeinfo based upon HEX F/W version
+int __ATSC3_SL_TLV_EXTRACT_L1D_TIME_INFO__ = 0;
 
 //impl for default metrics collection
 atsc3_sl_tlv_payload_metrics_t __GLOBAL_DEFAULT_SL_TLV_PAYLOAD_METRICS;
@@ -44,7 +47,7 @@ restart_parsing:
 
     //our TLV header must be at least 188 bytes to parse
     if(buf_end - buf_start < 188) {
-    	__SL_TLV_DEMOD_WARN("atsc3_sl_tlv_payload_parse_from_block_t: remaining payload length is less than TLV 188 bytes: %ld", (buf_end - buf_start));
+    	__SL_TLV_DEMOD_WARN("atsc3_sl_tlv_payload_parse_from_block_t: remaining payload length is less than TLV 188 bytes: %d", (buf_end - buf_start));
     	return NULL;
     }
 
@@ -170,7 +173,14 @@ restart_parsing:
                               buf,
                               buf_end);
         //jjustman-2020-11-06 - move our pointer forward to discard invalid block so we don't get stuck in a infinite loop and start parsing for magic
-        block_Seek(atsc3_sl_tlv_payload_unparsed_block, to_discard_from_unparsed_block_length);
+
+        //jjustman-2022-01-08 - fixed to be block_Seek_Relative
+        //        2022-01-08 18:08:07.229 6373-6607/com.nextgenbroadcast.mobile.middleware.sample D/NDK: atsc3_sl_tlv_demod_type.c       : 174:ERROR:1641694087.2293:INVALID TLV: alp packet size: -559038737 - (0xdeadbeef), PLP: 0x00, at position: 24692, to_discard_from_unparsed_block: 4, buf_start: 0x7b32cd9bf4, buf: 0x7b32cd9bf8, buf_end: 0x7b32cdbbf8, bailing
+        //        2022-01-08 18:08:07.229 6373-6607/com.nextgenbroadcast.mobile.middleware.sample D/NDK: atsc3_sl_tlv_demod_type.c       :  87:INFO :1641694087.2293:atsc3_sl_tlv_payload_parse_from_block_t: position: 1644, found magic number - parsed as: 0x24681357 (expected: 0x24681357), buf start: 0x7b32cd3b84, buf_found: 0x7b32cd41ec, buf end: 0x7b32cdbbf8, offset: 1640
+        //        2022-01-08 18:08:07.229 6373-6607/com.nextgenbroadcast.mobile.middleware.sample D/NDK: atsc3_sl_tlv_demod_type.c       : 174:ERROR:1641694087.2295:INVALID TLV: alp packet size: -559038737 - (0xdeadbeef), PLP: 0x00, at position: 24692, to_discard_from_unparsed_block: 4, buf_start: 0x7b32cd9bf4, buf: 0x7b32cd9bf8, buf_end: 0x7b32cdbbf8, bailing
+        //        2022-01-08 18:08:07.229 6373-6607/com.nextgenbroadcast.mobile.middleware.sample D/NDK: atsc3_sl_tlv_demod_type.c       :  87:INFO :1641694087.2295:atsc3_sl_tlv_payload_parse_from_block_t: position: 1644, found magic number - parsed as: 0x24681357 (expected: 0x24681357), buf start: 0x7b32cd3b84, buf_found: 0x7b32cd41ec, buf end: 0x7b32cdbbf8, offset: 1640
+
+        block_Seek_Relative(atsc3_sl_tlv_payload_unparsed_block, to_discard_from_unparsed_block_length);
 
 		return NULL;
 	} else {
@@ -215,7 +225,7 @@ restart_parsing:
 
     atsc3_sl_tlv_payload->reserved_b12_b15 = ntohl((*((uint32_t*)(buf))>>8 & 0x00FFFFFF));
     __SL_TLV_DEMOD_TRACE("  reserved_b12_b15: 0x%06x", atsc3_sl_tlv_payload->reserved_b12_b15);
-    buf+=3;
+    buf+=4;
     
     atsc3_sl_tlv_payload->reserved_b16 = *buf++;
     __SL_TLV_DEMOD_TRACE("  reserved_b16 packet size: 0x%02x", atsc3_sl_tlv_payload->reserved_b16);
@@ -227,9 +237,37 @@ restart_parsing:
     atsc3_sl_tlv_payload->reserved_b20_b23 = ntohl(*((uint32_t*)(buf)));
     __SL_TLV_DEMOD_TRACE("  reserved_b20_b23: 0x%08x", atsc3_sl_tlv_payload->reserved_b20_b23);
     buf+=4;
-    
-    //increment past remaining TLV payload (23 bytes)
-    buf += (188 - 23);
+
+    if(__ATSC3_SL_TLV_EXTRACT_L1D_TIME_INFO__) {
+
+        atsc3_sl_tlv_payload->reserved_b24_b27 = ntohl(*((uint32_t*)(buf)));
+        __SL_TLV_DEMOD_TRACE("  reserved_b24_b27: 0x%08x", atsc3_sl_tlv_payload->reserved_b24_b27);
+        buf+=4;
+
+        //jjustman-2021-10-24 - adding in support for l1d parsing
+        //todo: FIX ME to use block_t reader instead of manually incrementing buf pos...
+        atsc3_sl_tlv_payload->l1d_time_sec = *(uint32_t*)(buf);
+        __SL_TLV_DEMOD_TRACE("  l1d_time_sec: 0x%08x", atsc3_sl_tlv_payload->l1d_time_sec);
+        buf+=4;
+
+        atsc3_sl_tlv_payload->l1d_time_msec = *(uint32_t*)(buf);
+        __SL_TLV_DEMOD_TRACE("  l1d_time_msec: 0x%08x", atsc3_sl_tlv_payload->l1d_time_msec);
+        buf+=4;
+
+        atsc3_sl_tlv_payload->l1d_time_usec = *(uint32_t*)(buf);
+        __SL_TLV_DEMOD_TRACE("  l1d_time_usec: 0x%08x", atsc3_sl_tlv_payload->l1d_time_usec);
+        buf+=4;
+
+        atsc3_sl_tlv_payload->l1d_time_nsec = *(uint32_t*)(buf);
+        __SL_TLV_DEMOD_TRACE("  l1d_time_nsec: 0x%08x", atsc3_sl_tlv_payload->l1d_time_nsec);
+        buf+=4;
+
+        //increment past remaining TLV payload (consumed 44 bytes so far.. bytes)
+        buf += (188 - 44);
+    } else {
+        //older HEX F/W (including EVT1 AA build from 2021-10 doesn't have this additional header data)
+        buf += (188 - 24);
+    }
 
     uint32_t remaining_block_t_size = buf_end - buf;
 

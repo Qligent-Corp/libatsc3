@@ -56,6 +56,8 @@ atsc3_mmt_mfu_context_t* atsc3_mmt_mfu_context_internal_flows_new() {
     //internal related callbacks
     atsc3_mmt_mfu_context->atsc3_mmt_signalling_information_on_packet_id_with_mpu_timestamp_descriptor_internal = &atsc3_mmt_signalling_information_on_packet_id_with_mpu_timestamp_descriptor_callback_internal;
 
+    atsc3_mmt_mfu_context->internal_sei.mmt_mpu_mfu_on_sample_complete_sei_scan_for_sl_hdr_sei_itu_t_35_and_terminal_provider_code_internal = &atsc3_mmt_mpu_mfu_on_sample_complete_sei_scan_for_sl_hdr_sei_itu_t_35_and_terminal_provider_code_internal;
+
 //    atsc3_mmt_mfu_context->atsc3_mmt_signalling_information_on_mp_table_subset			= &atsc3_mmt_signalling_information_on_mp_table_subset_noop;
 //    atsc3_mmt_mfu_context->atsc3_mmt_signalling_information_on_mp_table_complete 		= &atsc3_mmt_signalling_information_on_mp_table_complete_noop;
 
@@ -66,7 +68,8 @@ atsc3_mmt_mfu_context_t* atsc3_mmt_mfu_context_internal_flows_new() {
 
     //helper methods
     atsc3_mmt_mfu_context->get_mpu_timestamp_from_packet_id_mpu_sequence_number                                           = atsc3_get_mpu_timestamp_from_packet_id_mpu_sequence_number; //&atsc3_get_mpu_timestamp_from_packet_id_mpu_sequence_number_with_last_failsafe;
-    atsc3_mmt_mfu_context->get_mpu_timestamp_from_packet_id_mpu_sequence_number_with_mmtp_timestamp_recovery_differential = atsc3_get_mpu_timestamp_from_packet_id_mpu_sequence_number_with_mmtp_timestamp_recovery_differential; //&atsc3_get_mpu_timestamp_from_packet_id_mpu_sequence_number_with_last_failsafe;
+    atsc3_mmt_mfu_context->get_mpu_timestamp_from_packet_id_mpu_sequence_number_with_mmtp_timestamp_recovery_differential = atsc3_get_mpu_timestamp_from_packet_id_mpu_sequence_number_with_mmtp_timestamp_recovery_differential
+            ; //&atsc3_get_mpu_timestamp_from_packet_id_mpu_sequence_number_with_last_failsafe;
 
     return atsc3_mmt_mfu_context;
 }
@@ -89,7 +92,7 @@ atsc3_mmt_mfu_mpu_timestamp_descriptor_t* atsc3_get_mpu_timestamp_from_packet_id
     return NULL;
 }
 
-atsc3_mmt_mfu_mpu_timestamp_descriptor_t* atsc3_get_mpu_timestamp_from_packet_id_mpu_sequence_number_with_mmtp_timestamp_recovery_differential(atsc3_mmt_mfu_context_t* atsc3_mmt_mfu_context, uint16_t packet_id, uint32_t mmtp_timestamp, uint32_t mpu_sequence_number) {
+atsc3_mmt_mfu_mpu_timestamp_descriptor_t* atsc3_get_mpu_timestamp_from_packet_id_mpu_sequence_number_with_mmtp_timestamp_recovery_differential(atsc3_mmt_mfu_context_t* atsc3_mmt_mfu_context, uint16_t packet_id, uint32_t mmtp_timestamp, uint32_t mpu_sequence_number, uint32_t sample_number) {
 //    __MMT_CONTEXT_MPU_DEBUG("atsc3_get_mpu_timestamp_from_packet_id_mpu_sequence_number_with_mmtp_timestamp_recovery_differential: entries: %d, looking for packet_id: %d, mmtp_timestamp: %u, mpu_sequence_number: %d",  atsc3_mmt_mfu_context->packet_id_mpu_timestamp_descriptor_window.atsc3_mmt_mfu_mpu_timestamp_descriptor_v.count, packet_id, mmtp_timestamp, mpu_sequence_number);
 
     atsc3_mmt_mfu_mpu_timestamp_descriptor_t* atsc3_mmt_mfu_mpu_timestamp_descriptor_max = NULL;
@@ -116,19 +119,36 @@ atsc3_mmt_mfu_mpu_timestamp_descriptor_t* atsc3_get_mpu_timestamp_from_packet_id
         uint32_t mpu_presentation_time_microseconds_adjusted_from_mmtp_timestamp_differential = 0;
         uint64_t mpu_presentation_time_as_us_value_adjusted_from_mmtp_timestamp_differential = 0;
 
-        uint32_t mmtp_timestamp_differential_ntp32 = mmtp_timestamp - atsc3_mmt_mfu_mpu_timestamp_descriptor_max->mmtp_timestamp;
+        uint32_t mmtp_timestamp_differential_uncorrected_deltaT_sample_number_ntp32 = mmtp_timestamp - atsc3_mmt_mfu_mpu_timestamp_descriptor_max->mmtp_timestamp;
 
-        compute_ntp32_to_seconds_microseconds(mmtp_timestamp_differential_ntp32, &mmtp_timestamp_differential_s, &mmtp_timestamp_differential_us);
+        //jjustman-2021-10-05 - compute our -deltaT for our mmtp_timestamp ala:
+        //     recovery_mmtp_timestamp_sample_deltaT_s = (sample_number * sample_duration_us) / 1000000;
+        //     recovery_mmtp_timestamp_sample_deltaT_us = (sample_number * sample_duration_us)
+        // note: sample_duration_us should be available from the respective atsc3_mmt_mfu_context->mmtp_packet_id_packets_container->atsc3_(video|audio|stpp)_decoder_configuration
+        //  e.g. if(atsc3_mmt_mfu_context->mmtp_packet_id_packets_container->atsc3_video_decoder_configuration_record) {
+        uint32_t sample_duration_us = atsc3_mmt_mfu_context->mmtp_packet_id_packets_container->atsc3_video_decoder_configuration_record ? atsc3_mmt_mfu_context->mmtp_packet_id_packets_container->atsc3_video_decoder_configuration_record->sample_duration_us :
+                                        (atsc3_mmt_mfu_context->mmtp_packet_id_packets_container->atsc3_audio_decoder_configuration_record ? atsc3_mmt_mfu_context->mmtp_packet_id_packets_container->atsc3_audio_decoder_configuration_record->sample_duration_us :
+                                            (atsc3_mmt_mfu_context->mmtp_packet_id_packets_container->atsc3_stpp_decoder_configuration_record ? atsc3_mmt_mfu_context->mmtp_packet_id_packets_container->atsc3_stpp_decoder_configuration_record->sample_duration_us : 0) );
+
+        uint16_t recovery_mmtp_timestamp_sample_deltaT_s = (sample_number * sample_duration_us) / 1000000;
+        uint16_t recovery_mmtp_timestamp_sample_deltaT_us = (sample_number * sample_duration_us);
+
+        uint32_t recovery_interpolated_to_mmtp_timestamp_delta_ntp32 = ntp32_compute_from_seconds_microseconds(recovery_mmtp_timestamp_sample_deltaT_s, recovery_mmtp_timestamp_sample_deltaT_us);
+        uint32_t mmtp_timestamp_differential_rebased_deltaT_first_sample_number_ntp32 = mmtp_timestamp - recovery_interpolated_to_mmtp_timestamp_delta_ntp32 - atsc3_mmt_mfu_mpu_timestamp_descriptor_max->mmtp_timestamp;
+
+        compute_ntp32_to_seconds_microseconds(mmtp_timestamp_differential_rebased_deltaT_first_sample_number_ntp32, &mmtp_timestamp_differential_s, &mmtp_timestamp_differential_us);
+
         if(mmtp_timestamp_differential_s > 60) {
 
 #ifdef __ATSC3_MMT_CONTEXT_MFU_DEPACKETIZER_ERROR_ON_MMTP_TIMESTAMP_DIFFERENTAL_GREATER_THAN_60S__
 
             __MMT_CONTEXT_MPU_ERROR("atsc3_get_mpu_timestamp_from_packet_id_mpu_sequence_number_with_mmtp_timestamp_recovery_differential: computed differental of %d.%06d is too large, bailing!"
-                                    "matching packet_id: %d, mpu_sequence_number: %u, using: atsc3_mmt_mfu_mpu_timestamp_descriptor_max: mmtp_timestamp: %u, mpu_sequence_number: %u, mpu_presentation_time_as_us_value: %" PRIu64 " from_recovery: %d, our current mmtp_timestamp: %u",
+                                    "matching packet_id: %d, mpu_sequence_number: %u, sample_number: %u, using: atsc3_mmt_mfu_mpu_timestamp_descriptor_max: mmtp_timestamp: %u, mpu_sequence_number: %u, mpu_presentation_time_as_us_value: %" PRIu64 " from_recovery: %d, our current mmtp_timestamp: %u",
                                     mmtp_timestamp_differential_s,
                                     mmtp_timestamp_differential_us,
                                     packet_id,
                                     mpu_sequence_number,
+                                    sample_number,
                                     atsc3_mmt_mfu_mpu_timestamp_descriptor_max->mmtp_timestamp,
                                     atsc3_mmt_mfu_mpu_timestamp_descriptor_max->mpu_sequence_number,
                                     atsc3_mmt_mfu_mpu_timestamp_descriptor_max->mpu_presentation_time_as_us_value,
@@ -138,11 +158,12 @@ atsc3_mmt_mfu_mpu_timestamp_descriptor_t* atsc3_get_mpu_timestamp_from_packet_id
 #else
 
             __MMT_CONTEXT_MPU_WARN("atsc3_get_mpu_timestamp_from_packet_id_mpu_sequence_number_with_mmtp_timestamp_recovery_differential: computed differental of %d.%06d is too large, bailing!"
-                                   "matching packet_id: %d, mpu_sequence_number: %u, using: atsc3_mmt_mfu_mpu_timestamp_descriptor_max: mmtp_timestamp: %u, mpu_sequence_number: %u, mpu_presentation_time_as_us_value: %" PRIu64 " from_recovery: %d, our current mmtp_timestamp: %u",
+                                   "matching packet_id: %d, mpu_sequence_number: %u, sample_number: %u, using: atsc3_mmt_mfu_mpu_timestamp_descriptor_max: mmtp_timestamp: %u, mpu_sequence_number: %u, mpu_presentation_time_as_us_value: %" PRIu64 " from_recovery: %d, our current mmtp_timestamp: %u",
                                    mmtp_timestamp_differential_s,
                                    mmtp_timestamp_differential_us,
                                    packet_id,
                                    mpu_sequence_number,
+                                   sample_number,
                                    atsc3_mmt_mfu_mpu_timestamp_descriptor_max->mmtp_timestamp,
                                    atsc3_mmt_mfu_mpu_timestamp_descriptor_max->mpu_sequence_number,
                                    atsc3_mmt_mfu_mpu_timestamp_descriptor_max->mpu_presentation_time_as_us_value,
@@ -153,7 +174,7 @@ atsc3_mmt_mfu_mpu_timestamp_descriptor_t* atsc3_get_mpu_timestamp_from_packet_id
 
         //See https://tools.ietf.org/html/rfc5905#section-6, ntp64 has 32bit seconds and 32bit fractional which resolves to 232 picoseconds. (1,000,000uS in a pS) and
         //http://waitingkuo.blogspot.com/2012/06/conversion-between-ntp-time-and-unix.html
-        uint64_t mmtp_timestamp_differential_ntp64 = ((uint64_t)(mmtp_timestamp_differential_s) << 32) | (uint32_t)( (double)(mmtp_timestamp_differential_us+1) * (double)(1LL<<32) * 1.0e-6 );
+        uint64_t mmtp_timestamp_differential_ntp64 = ntp64_compute_from_seconds_microseconds(mmtp_timestamp_differential_s, mmtp_timestamp_differential_us); // was...-> ((uint64_t)(mmtp_timestamp_differential_s) << 32) | (uint32_t)( (double)(mmtp_timestamp_differential_us+1) * (double)(1LL<<32) * 1.0e-6 );
 
         uint64_t mpu_presentation_time_ntp64_adjusted_from_mmtp_timestamp_differential = atsc3_mmt_mfu_mpu_timestamp_descriptor_max->mpu_presentation_time_ntp64 + mmtp_timestamp_differential_ntp64;
         compute_ntp64_to_seconds_microseconds(mpu_presentation_time_ntp64_adjusted_from_mmtp_timestamp_differential, &mpu_presentation_time_seconds_adjusted_from_mmtp_timestamp_differential, &mpu_presentation_time_microseconds_adjusted_from_mmtp_timestamp_differential);
@@ -161,12 +182,13 @@ atsc3_mmt_mfu_mpu_timestamp_descriptor_t* atsc3_get_mpu_timestamp_from_packet_id
         mpu_presentation_time_as_us_value_adjusted_from_mmtp_timestamp_differential = compute_seconds_microseconds_to_scalar64(mpu_presentation_time_seconds_adjusted_from_mmtp_timestamp_differential, mpu_presentation_time_microseconds_adjusted_from_mmtp_timestamp_differential);
 
         //otherwise, prepare this new atsc3_mmt_mfu_mpu_timestamp_descriptor
-        __MMT_CONTEXT_MPU_INFO("atsc3_get_mpu_timestamp_from_packet_id_mpu_sequence_number_with_mmtp_timestamp_recovery_differential: missing matching packet_id: %d, mpu_sequence_number: %u, mpu_presentation_timestamp differential: %f, differential: %d.%06d, differential ntp64: %" PRIu64", using: "
+        __MMT_CONTEXT_MPU_INFO("atsc3_get_mpu_timestamp_from_packet_id_mpu_sequence_number_with_mmtp_timestamp_recovery_differential: missing matching packet_id: %d, mpu_sequence_number: %u, sample_number: %u, mpu_presentation_timestamp differential: %f, differential: %d.%06d, differential ntp64: %" PRIu64", using: "
                                 "atsc3_mmt_mfu_mpu_timestamp_descriptor_max:\n"
                                 "max: mmtp_timestamp\t%u\tmpu_sequence_number\t%u\tmpu_presentation_time_as_us_value\t%" PRIu64 "\tmpu_presentation_time_ntp64_adjusted_from_mmtp_timestamp_differential\t%" PRIu64"\tfrom recovery flag: %d\n"
                                 "new: mmtp_timestamp\t%u\tmpu_sequence_number\t%u\tmpu_presentation_time_as_us_value\t%" PRIu64 "\tmpu_presentation_time_ntp64_adjusted_from_mmtp_timestamp_differential\t%" PRIu64"\n",
                                 packet_id,
                                 mpu_sequence_number,
+                                sample_number,
                                 (mpu_presentation_time_as_us_value_adjusted_from_mmtp_timestamp_differential - atsc3_mmt_mfu_mpu_timestamp_descriptor_max->mpu_presentation_time_as_us_value) / 1000000.0,
                                 mmtp_timestamp_differential_s,
                                 mmtp_timestamp_differential_us,
@@ -189,15 +211,18 @@ atsc3_mmt_mfu_mpu_timestamp_descriptor_t* atsc3_get_mpu_timestamp_from_packet_id
 
         //set our recovery anchor attributes
         atsc3_mmt_mfu_mpu_timestamp_descriptor->mpu_presentation_time_computed_from_recovery_mmtp_timestamp_flag = true;
-        atsc3_mmt_mfu_mpu_timestamp_descriptor->recovery_mmtp_timestamp              = atsc3_mmt_mfu_mpu_timestamp_descriptor_max->mmtp_timestamp;
-        atsc3_mmt_mfu_mpu_timestamp_descriptor->recovery_mpu_sequence_number         = atsc3_mmt_mfu_mpu_timestamp_descriptor_max->mpu_sequence_number;
-        atsc3_mmt_mfu_mpu_timestamp_descriptor->recovery_mpu_presentation_time_ntp64 = atsc3_mmt_mfu_mpu_timestamp_descriptor_max->recovery_mpu_presentation_time_ntp64;
+        atsc3_mmt_mfu_mpu_timestamp_descriptor->recovery_detected_at_mmtp_timestamp         = mmtp_timestamp;
+        atsc3_mmt_mfu_mpu_timestamp_descriptor->recovery_interpolated_from_sample_number    = sample_number;
+
+        atsc3_mmt_mfu_mpu_timestamp_descriptor->recovery_anchor_mmtp_timestamp              = atsc3_mmt_mfu_mpu_timestamp_descriptor_max->mmtp_timestamp;
+        atsc3_mmt_mfu_mpu_timestamp_descriptor->recovery_anchor_mpu_sequence_number         = atsc3_mmt_mfu_mpu_timestamp_descriptor_max->mpu_sequence_number;
+        atsc3_mmt_mfu_mpu_timestamp_descriptor->recovery_anchor_mpu_presentation_time_ntp64 = atsc3_mmt_mfu_mpu_timestamp_descriptor_max->recovery_anchor_mpu_presentation_time_ntp64;
 
         atsc3_mmt_mfu_mpu_timestamp_descriptor->mmtp_timestamp      = mmtp_timestamp;
         atsc3_mmt_mfu_mpu_timestamp_descriptor->mpu_sequence_number = mpu_sequence_number;
 
         //shift and add our differential into our mpu_presentation_time_ntp64
-        atsc3_mmt_mfu_mpu_timestamp_descriptor->mpu_presentation_time_ntp64 = mpu_presentation_time_ntp64_adjusted_from_mmtp_timestamp_differential;
+        atsc3_mmt_mfu_mpu_timestamp_descriptor->mpu_presentation_time_ntp64         = mpu_presentation_time_ntp64_adjusted_from_mmtp_timestamp_differential;
 
         atsc3_mmt_mfu_mpu_timestamp_descriptor->mpu_presentation_time_seconds       = mpu_presentation_time_seconds_adjusted_from_mmtp_timestamp_differential;
         atsc3_mmt_mfu_mpu_timestamp_descriptor->mpu_presentation_time_microseconds  = mpu_presentation_time_microseconds_adjusted_from_mmtp_timestamp_differential;
@@ -410,7 +435,8 @@ void mmtp_mfu_process_from_payload_with_context(udp_packet_t *udp_packet, mmtp_m
 
         //notify context of the sequence number change
         if(atsc3_mmt_mfu_context->atsc3_mmt_mpu_on_sequence_number_change) {
-            atsc3_mmt_mfu_context->atsc3_mmt_mpu_on_sequence_number_change(atsc3_mmt_mfu_context, mmtp_mpu_packet->mmtp_packet_id, matching_lls_sls_mmt_session->last_udp_flow_packet_id_mpu_sequence_tuple_video->mpu_sequence_number, mmtp_mpu_packet->mpu_sequence_number);
+    		//jjustman - use previous_mpu_sequence_number_mmtp_mpu_packet_collection->mpu_sequence_number instead of matching_lls_sls_mmt_session->last_udp_flow_packet_id_mpu_sequence_tuple_video->mpu_sequence_number
+            atsc3_mmt_mfu_context->atsc3_mmt_mpu_on_sequence_number_change(atsc3_mmt_mfu_context, mmtp_mpu_packet->mmtp_packet_id, previous_mpu_sequence_number_mmtp_mpu_packet_collection->mpu_sequence_number, mmtp_mpu_packet->mpu_sequence_number);
         }
 
         //remove last mpu_sequence_number reference from our packets conntainenr
@@ -820,6 +846,26 @@ void mmtp_mfu_rebuild_from_packet_id_mpu_sequence_number(atsc3_mmt_mfu_context_t
                 //if we have our MMTHSampleHeader, then mfu_fragment_counter_mmthsample_header_start should tell us how many DU's we need to be completely recovered for this MFU
                 if (mfu_fragment_counter_mmthsample_header_start) {
                     if (mfu_fragment_counter_mmthsample_header_start - (mfu_fragment_count_rebuilt - 1) == 0) {
+
+                        //jjustman-2021-10-21 - perform any sei parsing checks and atsc3_mmt_mfu_context notification callbacks
+                        //for sl-hdr-1, only check keyframe (sample_num == 1) and only notify context callback once if itu_t_35 and country code found per session
+
+                        if(mmtp_mpu_packet_to_rebuild->sample_number == 1 && !atsc3_mmt_mfu_context->matching_lls_sls_mmt_session->detected_sl_hdr_sei_itu_t_35_and_terminal_provider_code) {
+                            if(atsc3_mmt_mfu_context->internal_sei.mmt_mpu_mfu_on_sample_complete_sei_scan_for_sl_hdr_sei_itu_t_35_and_terminal_provider_code_internal) {
+                                //jjustman-2021-10-21 - todo - extract full sl-hdr-1 sei message instead of boolean return here..
+                                bool detected_sl_hdr_sei_itu_t_35_and_terminal_provider_code = false;
+
+                                detected_sl_hdr_sei_itu_t_35_and_terminal_provider_code = atsc3_mmt_mfu_context->internal_sei.mmt_mpu_mfu_on_sample_complete_sei_scan_for_sl_hdr_sei_itu_t_35_and_terminal_provider_code_internal(du_mfu_block_to_rebuild);
+                                if(detected_sl_hdr_sei_itu_t_35_and_terminal_provider_code) {
+                                    atsc3_mmt_mfu_context->matching_lls_sls_mmt_session->detected_sl_hdr_sei_itu_t_35_and_terminal_provider_code = detected_sl_hdr_sei_itu_t_35_and_terminal_provider_code;
+
+                                    if(atsc3_mmt_mfu_context->external_sei.mmt_mpu_mfu_sei_scan_for_sl_hdr_sei_itu_t_35_and_terminal_provider_code_detected) {
+                                        atsc3_mmt_mfu_context->external_sei.mmt_mpu_mfu_sei_scan_for_sl_hdr_sei_itu_t_35_and_terminal_provider_code_detected(atsc3_mmt_mfu_context, mmtp_mpu_packet_to_rebuild->mmtp_packet_id, mmtp_mpu_packet_to_rebuild->mmtp_timestamp, mmtp_mpu_packet_to_rebuild->mpu_sequence_number, mmtp_mpu_packet_to_rebuild->sample_number);
+                                    }
+                                }
+                            }
+                        }
+
                         //REQUIRED
                         if(atsc3_mmt_mfu_context->atsc3_mmt_mpu_mfu_on_sample_complete) {
                             //jjustman-2021-01-19 - todo: use the mmtp_timestamp from the first packet emission, not the "last"
@@ -1168,13 +1214,50 @@ void mmt_signalling_message_dispatch_context_notification_callbacks(udp_packet_t
                 }
             }
 
+			//MMT_ATSC3_MESSAGE_CONTENT_TYPE_UserServiceDescription
+			if(mmt_signalling_message_header_and_payload->message_payload.mmt_atsc3_message_payload.mmt_atsc3_signalling_information_usbd_component) {
+				//dispatch our USBD component here
+				if(atsc3_mmt_mfu_context->atsc3_mmt_signalling_information_on_userservicedescription_present) {
+					atsc3_mmt_mfu_context->atsc3_mmt_signalling_information_on_userservicedescription_present(atsc3_mmt_mfu_context, mmt_signalling_message_header_and_payload->message_payload.mmt_atsc3_message_payload.mmt_atsc3_signalling_information_usbd_component);
+				}
+			}
+
+			//MMT_ATSC3_MESSAGE_CONTENT_TYPE_HELD
             if(mmt_signalling_message_header_and_payload->message_payload.mmt_atsc3_message_payload.mmt_atsc3_held_message) {
                 //dispatch our HELD component here
                 if(atsc3_mmt_mfu_context->atsc3_mmt_signalling_information_on_held_message_present) {
                     atsc3_mmt_mfu_context->atsc3_mmt_signalling_information_on_held_message_present(atsc3_mmt_mfu_context, mmt_signalling_message_header_and_payload->message_payload.mmt_atsc3_message_payload.mmt_atsc3_held_message);
                 }
-
             }
+
+			//MMT_ATSC3_MESSAGE_CONTENT_TYPE_VIDEO_STREAM_PROPERTIES_DESCRIPTOR
+			if(mmt_signalling_message_header_and_payload->message_payload.mmt_atsc3_message_payload.mmt_atsc3_message_content_type_video_stream_properties_descriptor) {
+				if(atsc3_mmt_mfu_context->mmt_atsc3_message_content_type_video_stream_properties_descriptor_present) {
+					atsc3_mmt_mfu_context->mmt_atsc3_message_content_type_video_stream_properties_descriptor_present(atsc3_mmt_mfu_context, mmt_signalling_message_header_and_payload->message_payload.mmt_atsc3_message_payload.mmt_atsc3_message_content_type_video_stream_properties_descriptor);
+				}
+			}
+			
+			//MMT_ATSC3_MESSAGE_CONTENT_TYPE_CAPTION_ASSET_DESCRIPTOR
+			if(mmt_signalling_message_header_and_payload->message_payload.mmt_atsc3_message_payload.mmt_atsc3_message_content_type_caption_asset_descriptor) {
+				if(atsc3_mmt_mfu_context->atsc3_mmt_signalling_information_on_caption_asset_descriptor_present) {
+					atsc3_mmt_mfu_context->atsc3_mmt_signalling_information_on_caption_asset_descriptor_present(atsc3_mmt_mfu_context, mmt_signalling_message_header_and_payload->message_payload.mmt_atsc3_message_payload.mmt_atsc3_message_content_type_caption_asset_descriptor);
+				}
+			}
+			
+			//MMT_ATSC3_MESSAGE_CONTENT_TYPE_AUDIO_STREAM_PROPERTIES_DESCRIPTOR
+			if(mmt_signalling_message_header_and_payload->message_payload.mmt_atsc3_message_payload.mmt_atsc3_message_content_type_audio_stream_properties_descriptor) {
+				if(atsc3_mmt_mfu_context->atsc3_mmt_signalling_information_on_audio_stream_properties_descriptor_present) {
+					atsc3_mmt_mfu_context->atsc3_mmt_signalling_information_on_audio_stream_properties_descriptor_present(atsc3_mmt_mfu_context, mmt_signalling_message_header_and_payload->message_payload.mmt_atsc3_message_payload.mmt_atsc3_message_content_type_audio_stream_properties_descriptor);
+				}
+			}
+			
+			//MMT_ATSC3_MESSAGE_CONTENT_TYPE_SECURITY_PROPERTIES_DESCRIPTOR_LAURL
+			if(mmt_signalling_message_header_and_payload->message_payload.mmt_atsc3_message_payload.mmt_atsc3_message_content_type_security_properties_descriptor_LAURL) {
+				if(atsc3_mmt_mfu_context->atsc3_mmt_signalling_information_on_security_properties_descriptor_LAURL_present) {
+					atsc3_mmt_mfu_context->atsc3_mmt_signalling_information_on_security_properties_descriptor_LAURL_present(atsc3_mmt_mfu_context, mmt_signalling_message_header_and_payload->message_payload.mmt_atsc3_message_payload.mmt_atsc3_message_content_type_security_properties_descriptor_LAURL);
+				}
+			}
+
 
 
 

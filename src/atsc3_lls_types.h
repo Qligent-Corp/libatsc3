@@ -708,6 +708,8 @@ typedef struct lls_sls_mmt_session {
        mmt_arguments_t* mmt_arguments;
        mmt_session_t* mmt_session;
 
+       bool detected_sl_hdr_sei_itu_t_35_and_terminal_provider_code;
+
 } lls_sls_mmt_session_t;
 
 ATSC3_VECTOR_BUILDER_METHODS_INTERFACE(lls_sls_mmt_session, atsc3_mmt_sls_mpt_location_info);
@@ -873,6 +875,8 @@ typedef struct lls_sls_alc_monitor {
     //atsc3_sls_alc_flow_v 	atsc3_sls_alc_all_mediainfo_flow_v;
 	
 	//method callback handlers
+    atsc3_lls_sls_alc_on_metadata_fragments_updated_callback_f  atsc3_lls_sls_alc_on_metadata_fragments_updated_callback;
+
     atsc3_alc_on_object_close_flag_s_tsid_content_location_f	atsc3_lls_sls_alc_on_object_close_flag_s_tsid_content_location_callback;
 	
 	atsc3_alc_on_route_mpd_patched_f    						atsc3_lls_sls_alc_on_route_mpd_patched_callback;                             //dispatched in atsc3_route_sls_processor.c

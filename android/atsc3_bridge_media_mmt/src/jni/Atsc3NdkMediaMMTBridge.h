@@ -23,6 +23,7 @@ using namespace std;
 #include "Atsc3LoggingUtils.h"
 #include "IAtsc3JniEnv.h"
 #include "Atsc3JniEnv.h"
+#include "Atsc3ProtoUtils.h"
 
 // libatsc3 type imports here
 #include <atsc3_utils.h>
@@ -39,11 +40,12 @@ using namespace std;
 #include <atsc3_mmt_mfu_context_callbacks_default_jni.h>
 
 #include "mmt/MMTExtractor.h"
+#include "Atsc3RingBuffer.h"
 
 class Atsc3NdkMediaMMTBridge : public IAtsc3NdkMediaMMTBridge
 {
 public:
-    Atsc3NdkMediaMMTBridge(JNIEnv* env, jobject jni_instance);
+    Atsc3NdkMediaMMTBridge(JNIEnv* env, jobject jni_instance, jobject fragment_buffer, jint max_fragment_count);
 
     //logging
     void LogMsg(const char *msg);
@@ -55,11 +57,20 @@ public:
     //MMT Initialization callbacks for Video and Audio format(s)
     void atsc3_onInitHEVC_NAL_Extracted(uint16_t service_id, uint16_t packet_id, uint32_t mpu_sequence_number, uint8_t* buffer, uint32_t bufferLen);
     void atsc3_onInitAudioDecoderConfigurationRecord(uint16_t service_id, uint16_t packet_id, uint32_t mpu_sequence_number, atsc3_audio_decoder_configuration_record_t* atsc3_audio_decoder_configuration_record);
+    void atsc3_notify_sl_hdr_1_present(uint16_t service_id, uint16_t packet_id, uint32_t mmtp_timestamp, uint32_t mpu_sequence_number, uint32_t sample_number);
+
 
     //Signalling callbacks
     void atsc3_signallingContext_notify_video_packet_id_and_mpu_timestamp_descriptor(uint16_t video_packet_id, uint32_t mpu_sequence_number, uint64_t mpu_presentation_time_ntp64, uint32_t mpu_presentation_time_seconds, uint32_t mpu_presentation_time_microseconds);
     void atsc3_signallingContext_notify_audio_packet_id_and_mpu_timestamp_descriptor(uint16_t audio_packet_id, uint32_t mpu_sequence_number, uint64_t mpu_presentation_time_ntp64, uint32_t mpu_presentation_time_seconds, uint32_t mpu_presentation_time_microsecond);
     void atsc3_signallingContext_notify_stpp_packet_id_and_mpu_timestamp_descriptor(uint16_t stpp_packet_id, uint32_t mpu_sequence_number, uint64_t mpu_presentation_time_ntp64, uint32_t mpu_presentation_time_seconds, uint32_t mpu_presentation_time_microseconds);
+
+    void atsc3_onVideoStreamProperties(mmt_atsc3_message_content_type_video_stream_properties_descriptor_t* mmt_atsc3_video_stream_properties_descriptor_message);
+    void atsc3_onCaptionAssetProperties(mmt_atsc3_message_content_type_caption_asset_descriptor_t* mmt_atsc3_caption_asset_descriptor_message);
+    void atsc3_onAudioStreamProperties(mmt_atsc3_message_content_type_audio_stream_properties_descriptor_t* mmt_atsc3_audio_stream_properties_descriptor_message);
+
+    void atsc3_onMpTableSubset(mp_table_t* mp_table);
+    void atsc3_onMpTableComplete(mp_table_t* mp_table);
 
     //Fragment Metadata callbacks
     void atsc3_onExtractedSampleDuration(uint16_t packet_id, uint32_t mpu_sequence_number, uint32_t extracted_sample_duration_us);
@@ -77,14 +88,18 @@ public:
 
 private:
 
-
     MMTExtractor* mmtExtractor;
+    Atsc3RingBuffer* fragmentBuffer;
+    std::map<uint16_t, uint32_t> packet_id_extracted_sample_duration_map;
 
     //global env.Get()->NewGlobalRef(jobjectByteBuffer); for c alloc'd MFU's and NAL's
     std::vector<jobject> global_jobject_mfu_refs;
     std::vector<jobject> global_jobject_nal_refs;
 
     block_t*    preAllocInFlightUdpPacket;
+
+    uint16_t    last_service_id = 0;
+    void writeToRingBuffer(int8_t type, uint16_t service_id, uint16_t packet_id, uint32_t sequence_number, uint32_t sample_number, uint64_t presentationUs, uint8_t* buffer, uint32_t bufferLen);
 
 public:
     //jjustman-2020-12-17 - testing
@@ -123,6 +138,8 @@ public:
     int acceptNdkByteBufferUdpPacket(jobject byte_buffer, jint byte_buffer_length);
     void extractUdpPacket(block_t* udpPacket);
 
+    void rewindRingBuffer();
+
     jmethodID mOnLogMsgId = nullptr;
 
     jmethodID atsc3_OnInitHEVC_NAL_Extracted = nullptr; //java method for pushing to a/v codec buffers
@@ -133,9 +150,18 @@ public:
     jclass    mmtAudioDecoderConfigurationRecord_AudioAC4SampleEntryBox_jclass_global_ref = nullptr;
     jclass    mmtAudioDecoderConfigurationRecord_AudioAC4SampleEntryBox_AC4SpecificBox_jclass_global_ref = nullptr;
 
+    jmethodID atsc3_notify_sl_hdr_1_present_ID = nullptr;
+
     jmethodID atsc3_signallingContext_notify_video_packet_id_and_mpu_timestamp_descriptor_ID = nullptr;  // java class method id
     jmethodID atsc3_signallingContext_notify_audio_packet_id_and_mpu_timestamp_descriptor_ID = nullptr;  // java class method id
     jmethodID atsc3_signallingContext_notify_stpp_packet_id_and_mpu_timestamp_descriptor_ID = nullptr;  // java class method id
+
+    jmethodID atsc3_onVideoStreamProperties_ID = nullptr;  // java class method id
+    jmethodID atsc3_onCaptionAssetProperties_ID = nullptr;  // java class method id
+    jmethodID atsc3_onAudioStreamProperties_ID = nullptr;  // java class method id
+
+    jmethodID atsc3_onMpTableSubset_ID = nullptr;  // java class method id
+    jmethodID atsc3_onMpTableComplete_ID = nullptr;  // java class method id
 
     jmethodID atsc3_onExtractedSampleDurationID = nullptr;
     jmethodID atsc3_setVideoWidthHeightFromTrakID = nullptr;
