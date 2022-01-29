@@ -1,5 +1,7 @@
 package org.ngbp.libatsc3.middleware.android.mmt;
 
+import android.util.Log;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
@@ -38,7 +40,8 @@ public class MmtMovieFragmentMetadataBox_senc_Payload {
         public Integer     sample_count = 0;
 
         public static class sample {
-            public byte[]     iv = new byte[8];    //assuming 8 byte IV
+            public byte[]     iv = new byte[16];    //assuming 16 byte IV?
+            public int        iv_tenc_size = 16;    //assuming 16 byte IV...
             public Short      subsample_count = 0; //set to 0 so we can at least compare without a null check16 bits
 
             public static class subsample {
@@ -87,28 +90,67 @@ public class MmtMovieFragmentMetadataBox_senc_Payload {
 
         senc.sample_count = byteBuffer.getInt();
 
-        for(int i=0; i < senc.sample_count; i++) {
+        /*
 
-            senc_box.sample sample = new senc_box.sample();
-            byteBuffer.get(sample.iv);
+        jjustman-2022-01-28 - todo: parse
 
-            //short-hand ref
-            if((senc.flags[2] & 0x000002) == 0x000002) {
-                sample.subsample_count = byteBuffer.getShort();
+    seig
 
-                for(int j=0; j < sample.subsample_count; j++) {
-                    senc_box.sample.subsample subsample = new senc_box.sample.subsample();
-                    subsample.bytes_of_clear_data = byteBuffer.getShort();
-                    subsample.bytes_of_protected_data = byteBuffer.getInt();
-                    sample.subsampleArrayList.add(subsample);
+        aligned(8) class CencSampleEncryptionInformationGroupEntry
 
-                    sample.subsample_bytes_of_clear_data_arrayList.add(j, subsample.bytes_of_clear_data);
-                    sample.subsample_bytes_of_protected_data_arrayList.add(j, subsample.bytes_of_protected_data);
+             aligned(8) class TrackEncryptionBox extends FullBox(‘tenc’, version, flags=0)
 
+        Tracks of all types SHALL use the CencSampleEncryptionInformationGroupEntry sample group description structure, which has the following syntax.
+        {
+        extends SampleGroupEntry( ‘seig’ )
+        unsigned int(8)
+        unsigned int(4)
+        unsigned int(4)
+        unsigned int(8)
+        unsigned int(8) Per_sample_IV_size
+        unsigned int(8)[16]
+        if (isProtected ==1 && Per_Sample_IV_Size == 0) {
+        unsigned int(8) constant_IV_size;
+        }
+
+
+OR
+
+    tenc
+
+        to get proper Per_Sample_IV_Size
+
+         */
+int last_i = 0;
+
+        try {
+
+            for (int i = 0; i < senc.sample_count; i++) {
+            last_i = i;
+                senc_box.sample sample = new senc_box.sample();
+                byteBuffer.get(sample.iv, 0, sample.iv_tenc_size);
+
+                //short-hand ref
+                if ((senc.flags[2] & 0x000002) == 0x000002) {
+                    sample.subsample_count = byteBuffer.getShort();
+
+                    for (int j = 0; j < sample.subsample_count; j++) {
+                        senc_box.sample.subsample subsample = new senc_box.sample.subsample();
+                        subsample.bytes_of_clear_data = byteBuffer.getShort();
+                        subsample.bytes_of_protected_data = byteBuffer.getInt();
+                        sample.subsampleArrayList.add(subsample);
+
+                        sample.subsample_bytes_of_clear_data_arrayList.add(j, subsample.bytes_of_clear_data);
+                        sample.subsample_bytes_of_protected_data_arrayList.add(j, subsample.bytes_of_protected_data);
+
+                    }
                 }
-            }
 
-            senc.sampleArrayList.add(sample);
+                senc.sampleArrayList.add(sample);
+            }
+        } catch (Exception ex) {
+            Log.w("senc_exception", ex);
+
         }
     }
 

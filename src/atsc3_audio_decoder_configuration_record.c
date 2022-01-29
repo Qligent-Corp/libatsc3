@@ -162,23 +162,113 @@ atsc3_audio_decoder_configuration_record_t* atsc3_audio_decoder_configuration_re
           https://developer.android.com/reference/android/media/MediaCodecs
 
      jjustman-2020-12-02: TODO: add in additional fourcc parsing types in addition to ac-4
+
+
+     jjustman-2022-01-28: note: for DRM protected content, look for the following enca box instead...
+
+
+      [stbl] size=8+237
+          [stsd] size=12+157
+            entry-count = 1
+          *  [enca] size=8+145
+              data_reference_index = 1
+              channel_count = 6
+              sample_size = 16
+              sample_rate = 48000
+              [dac4] size=8+29
+                ac4_dsi_version = 1
+                bitstream_version = 2
+                fs_index = 1
+                fs = 48000
+                frame_rate_index = 3
+                short_program_id = 0
+                program_uuid = [00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00]
+                bit_rate_mode = 2
+                bit_rate = 0
+                bit_rate_precision = 4294967295
+                [00].presentation_version = 1
+                [00].presentation_config_v1 = 31
+                [00].mdcompat = 1
+                [00].presentation_group_index = 0
+                [00].dsi_frame_rate_multiply_info = 0
+                [00].dsi_frame_rate_fraction_info = 0
+                [00].presentation_emdf_version = 0
+                [00].presentation_key_id = 0
+                [00].b_presentation_channel_coded = 1
+                [00].dsi_presentation_ch_mode = 4
+                [00].pres_b_4_back_channels_present = 0
+                [00].pres_top_channel_pairs = 0
+                [00].presentation_channel_mask_v1 = 47
+              [sinf] size=8+72
+                [frma] size=8+4
+             *     original_format = ac-4
+                [schm] size=12+8
+                  scheme_type = cenc
+                  scheme_version = 65536
+                [schi] size=8+32
+                  [tenc] size=12+20
+                    default_isProtected = 1
+                    default_Per_Sample_IV_Size = 16
+                    default_KID = [be 24 4c b2 ed f6 58 53 92 f7 c0 8a 6c 48 fd df]
  */
 
 bool atsc3_audio_decoder_configuration_parse_codec_type_and_sample_rate_from_block_t(atsc3_audio_decoder_configuration_record_t* atsc3_audio_decoder_configuration_record, block_t* mmt_mpu_metadata_block) {
 
+    bool has_found_codec_specific_metadata = false;
     atsc3_audio_ac4_sample_entry_box_t* atsc3_audio_ac4_sample_entry_box = NULL;
 
     block_Rewind(mmt_mpu_metadata_block);
     uint8_t* audio_ptr = block_Get(mmt_mpu_metadata_block);
 
-    for (int i = 0;  (i < mmt_mpu_metadata_block->p_size - 4); i++) {
+    for (int i = 0;  !has_found_codec_specific_metadata && (i < mmt_mpu_metadata_block->p_size - 4); i++) {
         block_Seek(mmt_mpu_metadata_block, i);
         _ATSC3_AUDIO_DECODER_CONFIGURATION_RECORD_TRACE("atsc3_audio_decoder_configuration_parse_codec_type_and_sample_rate_from_block_t: searching for either ac-4 or mp4a, position: %d, checking: 0x%02x (%c), 0x%02x (%c), 0x%02x (%c), 0x%02x (%c)",
                                               i, audio_ptr[i], audio_ptr[i], audio_ptr[i + 1], audio_ptr[i + 1], audio_ptr[i + 2], audio_ptr[i + 2], audio_ptr[i + 3], audio_ptr[i + 3]);
 
 
-        //look for ac-4 fourcc
-        if (audio_ptr[i] == 'a' && audio_ptr[i + 1] == 'c' && audio_ptr[i + 2] == '-' && audio_ptr[i + 3] == '4') {
+        //look for CENC obfuscation first with box named "enca"
+
+        if (audio_ptr[i] == 'e' && audio_ptr[i + 1] == 'n' && audio_ptr[i + 2] == 'c' && audio_ptr[i + 3] == 'a') {
+            _ATSC3_AUDIO_DECODER_CONFIGURATION_RECORD_DEBUG("atsc3_audio_decoder_configuration_parse_codec_type_and_sample_rate_from_block_t: enca: found matching at position: %d, seeking back 4 bytes to: %d", i, i-4);
+
+            //now we need to parse for frma to get our "original" format...
+
+            for (int j = i;  (j < mmt_mpu_metadata_block->p_size - 8); j++) {
+                block_Seek(mmt_mpu_metadata_block, j);
+                _ATSC3_AUDIO_DECODER_CONFIGURATION_RECORD_TRACE("atsc3_audio_decoder_configuration_parse_codec_type_and_sample_rate_from_block_t: searching for frma to find original_format position: %d, checking: 0x%02x (%c), 0x%02x (%c), 0x%02x (%c), 0x%02x (%c)",
+                                                                j, audio_ptr[j], audio_ptr[j], audio_ptr[j + 1], audio_ptr[j + 1], audio_ptr[j + 2], audio_ptr[j + 2], audio_ptr[j + 3], audio_ptr[j + 3]);
+
+                //frma
+                if (audio_ptr[j] == 'f' && audio_ptr[j + 1] == 'r' && audio_ptr[j + 2] == 'm' && audio_ptr[j + 3] == 'a') {
+                    //read next 4 bytes for our original_format
+
+                    if (audio_ptr[j+4] == 'a' && audio_ptr[j + 5] == 'c' && audio_ptr[j + 6] == '-' && audio_ptr[j + 7] == '4') {
+                    //copy paste warning from below for parsing ac-4 codec specific data, based at i-4 for the frma box "aliased" as an ac-4 codec specific data box...
+                        block_Seek(mmt_mpu_metadata_block, i-4);
+                        atsc3_audio_ac4_sample_entry_box = atsc3_audio_decoder_ac4_parse_init_box_from_block_t(mmt_mpu_metadata_block);
+
+                        if(atsc3_audio_ac4_sample_entry_box) {
+                            atsc3_audio_ac4_sample_entry_box_dump(atsc3_audio_ac4_sample_entry_box);
+                            atsc3_audio_decoder_configuration_record->channel_count = atsc3_audio_ac4_sample_entry_box->channel_count;
+                            atsc3_audio_decoder_configuration_record->sample_depth = atsc3_audio_ac4_sample_entry_box->sample_size;
+                            atsc3_audio_decoder_configuration_record->sample_rate = atsc3_audio_ac4_sample_entry_box->atsc3_audio_ac4_specific_box.fs_index == 0 ? 44100 : 48000;
+                            atsc3_audio_decoder_configuration_record->atsc3_audio_ac4_sample_entry_box = atsc3_audio_ac4_sample_entry_box;
+                            has_found_codec_specific_metadata = true;
+                        }
+                        break;
+                    } else {
+                        _ATSC3_AUDIO_DECODER_CONFIGURATION_RECORD_WARN("atsc3_audio_decoder_configuration_parse_codec_type_and_sample_rate_from_block_t: found frma, but original_format is unknown: position: %d, fourcc is:: 0x%02x (%c), 0x%02x (%c), 0x%02x (%c), 0x%02x (%c)",
+                                                                        j,
+                                                                        audio_ptr[j + 4], audio_ptr[j + 4],
+                                                                        audio_ptr[j + 5], audio_ptr[j + 5],
+                                                                        audio_ptr[j + 6], audio_ptr[j + 6],
+                                                                        audio_ptr[j + 7], audio_ptr[j + 7]);
+                    }
+                }
+            }
+
+        } else if (audio_ptr[i] == 'a' && audio_ptr[i + 1] == 'c' && audio_ptr[i + 2] == '-' && audio_ptr[i + 3] == '4') {
+            //look for ac-4 fourcc
             _ATSC3_AUDIO_DECODER_CONFIGURATION_RECORD_DEBUG("atsc3_audio_decoder_configuration_parse_codec_type_and_sample_rate_from_block_t: ac-4: found matching at position: %d, seeking back 4 bytes to: %d", i, i-4);
             block_Seek(mmt_mpu_metadata_block, i-4);
             atsc3_audio_ac4_sample_entry_box = atsc3_audio_decoder_ac4_parse_init_box_from_block_t(mmt_mpu_metadata_block);
@@ -189,15 +279,17 @@ bool atsc3_audio_decoder_configuration_parse_codec_type_and_sample_rate_from_blo
                 atsc3_audio_decoder_configuration_record->sample_depth = atsc3_audio_ac4_sample_entry_box->sample_size;
                 atsc3_audio_decoder_configuration_record->sample_rate = atsc3_audio_ac4_sample_entry_box->atsc3_audio_ac4_specific_box.fs_index == 0 ? 44100 : 48000;
                 atsc3_audio_decoder_configuration_record->atsc3_audio_ac4_sample_entry_box = atsc3_audio_ac4_sample_entry_box;
+                has_found_codec_specific_metadata = true;
             }
             break;
-        } else {
-            //jjustman-2021-09-08 - HACK for mpeg-h - set some dummy values for channel count and sample depth / rate
-            atsc3_audio_decoder_configuration_record->channel_count = 2;
-            atsc3_audio_decoder_configuration_record->sample_depth = 16;
-            atsc3_audio_decoder_configuration_record->sample_rate = 48000;
-
         }
+    }
+
+    if(!has_found_codec_specific_metadata) {
+        //jjustman-2021-09-08 - HACK for mpeg-h - set some dummy values for channel count and sample depth / rate
+        atsc3_audio_decoder_configuration_record->channel_count = 2;
+        atsc3_audio_decoder_configuration_record->sample_depth = 16;
+        atsc3_audio_decoder_configuration_record->sample_rate = 48000;
     }
 
     return (atsc3_audio_ac4_sample_entry_box != NULL);
@@ -215,6 +307,13 @@ atsc3_audio_ac4_sample_entry_box_t* atsc3_audio_decoder_ac4_parse_init_box_from_
     atsc3_audio_ac4_sample_entry_box = atsc3_audio_ac4_sample_entry_box_new();
 
     atsc3_audio_ac4_sample_entry_box->box_size = block_Read_uint32_ntohl(mmt_mpu_metadata_block);
+    if(atsc3_audio_ac4_sample_entry_box->box_size > block_Remaining_size(mmt_mpu_metadata_block)) {
+        _ATSC3_AUDIO_DECODER_CONFIGURATION_RECORD_ERROR("atsc3_audio_decoder_ac4_parse_init_box_from_block_t: parsed isobmff box_size: %d, but we only have %d bytes left, returning null!", atsc3_audio_ac4_sample_entry_box->box_size, block_Remaining_size(mmt_mpu_metadata_block));
+
+        freesafe(&atsc3_audio_ac4_sample_entry_box);
+        //fail here
+        return NULL;
+    }
     atsc3_audio_ac4_sample_entry_box->type = block_Read_uint32_ntohl(mmt_mpu_metadata_block);
     //skip 6 bytes
     block_Seek_Relative(mmt_mpu_metadata_block, 6);
