@@ -72,8 +72,9 @@ ATSC3_VECTOR_BUILDER_METHODS_PARENT_IMPLEMENTATION(atsc3_route_s_tsid)
 ATSC3_VECTOR_BUILDER_METHODS_IMPLEMENTATION(atsc3_route_s_tsid, atsc3_route_s_tsid_RS)
 
 //jjustman-2020-07-27 - todo: change this char* payload to block_t*
-atsc3_route_s_tsid_t* atsc3_route_s_tsid_parse_from_payload(char* payload, char* content_location) {
+atsc3_route_s_tsid_t* atsc3_route_s_tsid_parse_from_payload(char* payload, char* content_location, bool* parse_successful) {
 
+	*parse_successful = false;
 	atsc3_route_s_tsid_t* atsc3_route_s_tsid = NULL;
 
 	block_t* s_tsid_fragment_block = block_Promote(payload);
@@ -128,6 +129,7 @@ atsc3_route_s_tsid_t* atsc3_route_s_tsid_parse_from_payload(char* payload, char*
     xml_document_free(xml_document, false);
     block_Destroy(&s_tsid_fragment_block);
 
+    *parse_successful = true;
     return atsc3_route_s_tsid;
 }
 

@@ -90,8 +90,9 @@ void atsc3_route_period_free(atsc3_route_period_t** atsc3_route_period_p) {
 }
 
 //jjustman-2020-07-27 - todo: change this char* payload to block_t*
-atsc3_route_mpd_t* atsc3_route_mpd_parse_from_payload(char* payload, char* content_location) {
+atsc3_route_mpd_t* atsc3_route_mpd_parse_from_payload(char* payload, char* content_location, bool* parse_successful) {
 
+	*parse_successful = false;
 	block_t* mpd_fragment_block = block_Promote(payload);
 	xml_document_t* xml_document = xml_parse_document(mpd_fragment_block->p_buffer, mpd_fragment_block->i_pos);
 	if(!xml_document) {
@@ -181,6 +182,7 @@ atsc3_route_mpd_t* atsc3_route_mpd_parse_from_payload(char* payload, char* conte
 	}
     xml_document_free(xml_document, false);
     block_Destroy(&mpd_fragment_block);
+	*parse_successful = true;
 	return atsc3_route_mpd;
 }
 

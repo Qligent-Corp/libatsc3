@@ -231,7 +231,7 @@ typedef struct atsc3_route_s_tsid {
 ATSC3_VECTOR_BUILDER_METHODS_INTERFACE(atsc3_route_s_tsid, atsc3_route_s_tsid_RS)
 
 
-atsc3_route_s_tsid_t* atsc3_route_s_tsid_parse_from_payload(char* payload, char* content_location);
+atsc3_route_s_tsid_t* atsc3_route_s_tsid_parse_from_payload(char* payload, char* content_location, bool* parse_successful);
 atsc3_route_s_tsid_t* atsc3_route_s_tsid_parse_RS(xml_node_t* xml_node, atsc3_route_s_tsid_t* atsc3_route_s_tsid);
 atsc3_route_s_tsid_RS_t* atsc3_route_s_tsid_parse_RS_LS(xml_node_t* xml_node, atsc3_route_s_tsid_RS_t* atsc3_route_s_tsid_RS);
 atsc3_route_s_tsid_RS_LS_t* atsc3_route_s_tsid_parse_RS_LS_SrcFlow(xml_node_t* xml_node, atsc3_route_s_tsid_RS_LS_t* atsc3_route_s_tsid_RS_LS);

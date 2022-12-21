@@ -428,9 +428,11 @@ int alc_rx_analyze_packet_a331_compliant(char *data, int len, atsc3_alc_packet_t
 				  /* ignore */
 				  ALC_RX_DEBUG("ignoring EXT_AUTH: tsi: %u, toi: %u",  def_lct_hdr->tsi, def_lct_hdr->toi);
 
-				  //magic?
-				  header_pos += (hel-1) << 2;
-				  exthdrlen -= (hel-1) << 2;
+				  if(hel > 0) {
+				      //magic?
+				      header_pos += (hel - 1) << 2;
+				      exthdrlen -= (hel - 1) << 2;
+				  }
 				  break;
 
 			  case EXT_NOP:
@@ -449,8 +451,10 @@ int alc_rx_analyze_packet_a331_compliant(char *data, int len, atsc3_alc_packet_t
 				  /* ignore */
 				  ALC_RX_DEBUG("ignoring EXT_TIME: tsi: %u, toi: %u",  def_lct_hdr->tsi, def_lct_hdr->toi);
 
-				  header_pos += (hel-1) << 2;
-				  exthdrlen -= (hel-1)  << 2;
+				  if(hel > 0) {
+				      header_pos += (hel - 1) << 2;
+				      exthdrlen -= (hel - 1) << 2;
+				  }
 				  break;
 
 			  case EXT_ROUTE_PRESENTATION_TIME:

@@ -28,7 +28,8 @@ ATSC3_VECTOR_BUILDER_METHODS_ITEM_FREE(atsc3_user_service_broadcast_app_service_
 
 
 //jjustman-2020-07-27 - todo: change this char* payload to block_t*
-atsc3_route_user_service_bundle_description_t* atsc3_route_user_service_bundle_description_parse_from_payload(char* payload, char* content_location) {
+atsc3_route_user_service_bundle_description_t* atsc3_route_user_service_bundle_description_parse_from_payload(char* payload, char* content_location, bool* parse_successful) {
+	*parse_successful = false;
 	block_t* usbd_fragment_block = block_Promote(payload);
 	xml_document_t* xml_document = xml_parse_document(usbd_fragment_block->p_buffer, usbd_fragment_block->i_pos);
 	if(!xml_document) {
@@ -66,6 +67,7 @@ atsc3_route_user_service_bundle_description_t* atsc3_route_user_service_bundle_d
 	}
     xml_document_free(xml_document, false);
     block_Destroy(&usbd_fragment_block);
+	*parse_successful = true;
 	return atsc3_route_user_service_bundle_description;
 }
 

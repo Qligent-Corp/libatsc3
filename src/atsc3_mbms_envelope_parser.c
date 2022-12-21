@@ -98,7 +98,8 @@ bool atsc3_fdt_file_is_multipart_signed_from_payload(block_t* atsc3_fdt_file_con
  *
  */
 //jjustman-2020-07-27: TODO - fix this type from char* payload to block_t*
-atsc3_mbms_metadata_envelope_t* atsc3_mbms_envelope_parse_from_payload(char* payload, char* content_location) {
+atsc3_mbms_metadata_envelope_t* atsc3_mbms_envelope_parse_from_payload(char* payload, char* content_location, bool* parse_successful) {
+	*parse_successful = false;
 	atsc3_mbms_metadata_envelope_t* atsc3_mbms_metadata_envelope = NULL;
     
 	block_t* metadata_envelope_fragment_block = block_Promote(payload);
@@ -175,7 +176,8 @@ atsc3_mbms_metadata_envelope_t* atsc3_mbms_envelope_parse_from_payload(char* pay
 	}
     xml_document_free(xml_document, false);
     block_Destroy(&metadata_envelope_fragment_block);
-    
+
+	*parse_successful = true;
 	return atsc3_mbms_metadata_envelope;
 }
 

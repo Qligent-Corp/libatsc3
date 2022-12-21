@@ -21,8 +21,9 @@ ATSC3_VECTOR_BUILDER_METHODS_PARENT_IMPLEMENTATION(atsc3_sls_held_fragment);
 ATSC3_VECTOR_BUILDER_METHODS_IMPLEMENTATION(atsc3_sls_held_fragment, atsc3_sls_html_entry_package);
 
 //jjustman-2020-07-27: TODO: change this from char* payload to block_t*
-atsc3_sls_held_fragment_t* atsc3_sls_held_fragment_parse_from_payload(char* payload, char* content_locationt) {
+atsc3_sls_held_fragment_t* atsc3_sls_held_fragment_parse_from_payload(char* payload, char* content_location, bool* parse_successful) {
 
+	*parse_successful = false;
 	if(!strlen(payload)) {
 		_ATSC3_HELD_PARSER_ERROR("HELD fragment is empty, payload ptr: %p", payload);
 		return NULL;
@@ -131,6 +132,7 @@ atsc3_sls_held_fragment_t* atsc3_sls_held_fragment_parse_from_payload(char* payl
 
 		}
 	}
+    *parse_successful = true;
     goto cleanup;
 
     

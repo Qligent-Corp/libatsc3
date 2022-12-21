@@ -197,6 +197,11 @@ int PcapSTLTPVirtualPHY::atsc3_pcap_thread_stop() {
     }
 
     if(pcapConsumerThreadPtr.joinable()) {
+        {
+            // wake the consumer thread after changing pcapThreadShouldRun
+            lock_guard <mutex> pcap_replay_buffer_queue_guard(pcap_replay_buffer_queue_mutex);
+            pcap_replay_condition.notify_one();
+        }
         pcapConsumerThreadPtr.join();
     }
     _PCAP_STLTP_VIRTUAL_PHY_INFO("PcapSTLTPVirtualPHY::atsc3_pcap_thread_stop: stopped with this: %p", &pcapProducerThreadPtr);

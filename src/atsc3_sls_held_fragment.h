@@ -53,7 +53,7 @@ typedef struct atsc3_sls_held_fragment {
 
 ATSC3_VECTOR_BUILDER_METHODS_INTERFACE(atsc3_sls_held_fragment, atsc3_sls_html_entry_package);
 
-atsc3_sls_held_fragment_t* atsc3_sls_held_fragment_parse_from_payload(char* payload, char* content_location);
+atsc3_sls_held_fragment_t* atsc3_sls_held_fragment_parse_from_payload(char* payload, char* content_location, bool* parse_successful);
 void atsc3_sls_held_fragment_dump(atsc3_sls_held_fragment_t* atsc3_sls_held_fragment);
 
 bool atsc3_sls_held_fragment_has_changed(atsc3_sls_held_fragment_t* atsc3_sls_held_fragment, atsc3_sls_held_fragment_t* atsc3_sls_held_fragment_pending);

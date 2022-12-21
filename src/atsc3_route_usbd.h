@@ -164,7 +164,7 @@ typedef struct atsc3_route_user_service_bundle_description {
 } atsc3_route_user_service_bundle_description_t;
 
 
-atsc3_route_user_service_bundle_description_t* atsc3_route_user_service_bundle_description_parse_from_payload(char* payload, char* content_locationt);
+atsc3_route_user_service_bundle_description_t* atsc3_route_user_service_bundle_description_parse_from_payload(char* payload, char* content_location, bool* parse_successful);
 atsc3_user_service_description_t* atsc3_route_usbd_parse_from_usd(xml_node_t* xml_node, atsc3_route_user_service_bundle_description_t* atsc3_route_user_service_bundle_description);
 
 

@@ -204,8 +204,9 @@ atsc3_mime_multipart_related_instance_t* atsc3_mime_multipart_related_parser(FIL
 
 	bool has_consumed_up_to_first_dashdash = false;
 
-	//the first line after the header should be blank, keep going until we get -- indiciating the start of a block
-	while(!has_consumed_up_to_first_dashdash) {
+	//the first line after the header should be blank, keep going until we get -- indicating the start of a block
+	while(!has_consumed_up_to_first_dashdash && !feof(fp)) {
+		line_buffer = line_buffer_start;
 		fgets(line_buffer, ATSC3_MIME_MULTIPART_RELATED_LINE_BUFFER, fp);
 		line_count++;
 		line_buffer = __trim(line_buffer);
@@ -310,7 +311,7 @@ atsc3_mime_multipart_related_instance_t* atsc3_mime_multipart_related_parser(FIL
 		while(!feof(fp) && !payload_entry_complete) {
 			line_binary_len = getline(&line_binary, &line_binary_alloc_len, fp);
 
-			if(!line_binary || line_binary_len == 0) {
+			if(!line_binary || line_binary_len == 0 || line_binary_len == -1) {
 				//end of file
 				__MIME_PARSER_ERROR("fgetln returned null!");
 				payload_entry_complete = true;

@@ -153,7 +153,8 @@ atsc3_route_package_extracted_envelope_metadata_and_payload_t* atsc3_route_packa
 				 */
 				if(atsc3_mime_multipart_related_payload->content_type && !strncmp(ATSC3_ROUTE_MBMS_ENVELOPE_TYPE, atsc3_mime_multipart_related_payload->content_type, strlen(ATSC3_ROUTE_MBMS_ENVELOPE_TYPE))) {
 					atsc3_route_package_extracted_envelope_metadata_and_payload->atsc3_mbms_metadata_envelope_raw_xml = block_Duplicate(atsc3_mime_multipart_related_payload->payload);
-					atsc3_route_package_extracted_envelope_metadata_and_payload->atsc3_mbms_metadata_envelope = atsc3_mbms_envelope_parse_from_payload((char*)atsc3_mime_multipart_related_payload->payload->p_buffer, atsc3_mime_multipart_related_payload->sanitizied_content_location);
+					bool parse_successful;
+					atsc3_route_package_extracted_envelope_metadata_and_payload->atsc3_mbms_metadata_envelope = atsc3_mbms_envelope_parse_from_payload((char*)atsc3_mime_multipart_related_payload->payload->p_buffer, atsc3_mime_multipart_related_payload->sanitizied_content_location, &parse_successful);
 					atsc3_mbms_metadata_envelope_dump(atsc3_route_package_extracted_envelope_metadata_and_payload->atsc3_mbms_metadata_envelope);
 					continue;
 				}
