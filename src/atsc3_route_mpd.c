@@ -96,6 +96,7 @@ atsc3_route_mpd_t* atsc3_route_mpd_parse_from_payload(char* payload, char* conte
 	block_t* mpd_fragment_block = block_Promote(payload);
 	xml_document_t* xml_document = xml_parse_document(mpd_fragment_block->p_buffer, mpd_fragment_block->i_pos);
 	if(!xml_document) {
+		block_Destroy(&mpd_fragment_block);
 		return NULL;
 
 	}

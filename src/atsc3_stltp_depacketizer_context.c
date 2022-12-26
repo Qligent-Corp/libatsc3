@@ -58,7 +58,7 @@ void atsc3_stltp_depacketizer_context_free(atsc3_stltp_depacketizer_context_t** 
 				//atsc3_stltp_depacketizer_context->atsc3_alp_packet_collection
 				atsc3_alp_packet_collection_free_atsc3_alp_packet(atsc3_stltp_depacketizer_context->atsc3_alp_packet_collection);
 				atsc3_alp_packet_collection_free_atsc3_baseband_packet(atsc3_stltp_depacketizer_context->atsc3_alp_packet_collection);
-
+				freeclean(&atsc3_stltp_depacketizer_context->atsc3_alp_packet_collection);
 			}
 
 			free(atsc3_stltp_depacketizer_context);

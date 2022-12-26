@@ -1225,7 +1225,9 @@ atsc3_timing_management_packet_t* atsc3_stltp_parse_timing_management_packet(ats
     int remaining = block->p_size - block->i_pos;
     
     __STLTP_PARSER_DEBUG("timing management packet: payload len: %d, parsed len: %d, remaining %d", atsc3_timing_management_packet->length, parsed_length, remaining);
-    
+
+    block_Destroy(&block);
+
     return atsc3_timing_management_packet;
 
 cleanup:

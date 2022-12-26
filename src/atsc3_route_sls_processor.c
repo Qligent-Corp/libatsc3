@@ -172,7 +172,8 @@ void atsc3_route_sls_process_from_alc_packet_and_file(udp_flow_t* udp_flow, atsc
 			} else {
 				
 				//non-signed payload parsing
-				mbms_toi_filename = alc_packet_dump_to_object_get_filename_tsi_toi(udp_flow, 0, mbms_toi);
+				if(!mbms_toi_filename)
+					mbms_toi_filename = alc_packet_dump_to_object_get_filename_tsi_toi(udp_flow, 0, mbms_toi);
 				fp_mbms = fopen(mbms_toi_filename, "r");
 				if(!fp_mbms) {
 					_ATSC3_ROUTE_SLS_PROCESSOR_ERROR("alc_packet tsi/toi:0/%u filename: %s is null for unsigned pending: %p!", mbms_toi, mbms_toi_filename, atsc3_fdt_instance_pending);
@@ -591,6 +592,8 @@ bool atsc3_route_sls_patch_mpd_availability_start_time_and_start_number(atsc3_mi
 				if(!match_vector || !match_vector->atsc3_route_dash_matching_s_tsid_representation_media_info_alc_flow_match_v.count) {
 		        	block_Destroy(&block_mpd);
 		        	atsc3_pcre2_regex_match_capture_vector_free(&atsc3_pcre2_regex_match_capture_vector);
+		        	if(match_vector)
+		        	    atsc3_route_dash_matching_s_tsid_representation_media_info_alc_flow_match_vector_free(&match_vector);
 
 					_ATSC3_ROUTE_SLS_PROCESSOR_ERROR("find_matching_s_tsid_representations - match vector is null or match_v.cound is 0!");
 					goto error;
@@ -620,6 +623,7 @@ bool atsc3_route_sls_patch_mpd_availability_start_time_and_start_number(atsc3_mi
 
 				block_Destroy(&patched_mpd);
 
+				atsc3_route_dash_matching_s_tsid_representation_media_info_alc_flow_match_vector_free_atsc3_route_dash_matching_s_tsid_representation_media_info_alc_flow_match(match_vector);
 				atsc3_route_dash_matching_s_tsid_representation_media_info_alc_flow_match_vector_free(&match_vector);
 				atsc3_pcre2_regex_match_capture_vector_free(&atsc3_pcre2_regex_match_capture_vector);
 

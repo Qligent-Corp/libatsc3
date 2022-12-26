@@ -287,7 +287,7 @@ atsc3_baseband_packet_t* atsc3_stltp_parse_baseband_packet(atsc3_stltp_baseband_
     
     int32_t bytes_pre_pointer_remaining_len = binary_payload_length - (baseband_pre_pointer_payload_start - binary_payload_start);
     
-    if(!bytes_pre_pointer_remaining_len) {
+    if(bytes_pre_pointer_remaining_len <= 0) {
         __ALP_PARSER_ERROR(" no bytes remaining for baseband pre_pointer packet_payload! binary_payload_length: %d, ptr: start: %p, baseband_pre_pointer_payload_start: %p",
                            binary_payload_length,
                            baseband_pre_pointer_payload_start,
@@ -295,7 +295,7 @@ atsc3_baseband_packet_t* atsc3_stltp_parse_baseband_packet(atsc3_stltp_baseband_
         
         goto cleanup;
     }
-    
+
     __ALP_PARSER_INFO(" -> before ptr, base field ptr: %d, payload position : %p, pre_pointer bytes remaining: %d",
                       atsc3_baseband_packet->base_field_pointer,
                       baseband_pre_pointer_payload_start,
@@ -307,7 +307,15 @@ atsc3_baseband_packet_t* atsc3_stltp_parse_baseband_packet(atsc3_stltp_baseband_
                           baseband_pre_pointer_payload_start,
                           baseband_pre_pointer_payload_start + atsc3_baseband_packet->base_field_pointer,
                           atsc3_baseband_packet->base_field_pointer);
-        
+
+        if (bytes_pre_pointer_remaining_len < atsc3_baseband_packet->base_field_pointer)
+        {
+            __ALP_PARSER_ERROR(" truncated stltp packet received! bytes_pre_pointer_remaining_len: %d, atsc3_baseband_packet->base_field_pointer: %hd",
+                               bytes_pre_pointer_remaining_len,
+                               atsc3_baseband_packet->base_field_pointer);
+            goto cleanup;
+        }
+
         atsc3_baseband_packet->alp_payload_pre_pointer = block_Alloc(atsc3_baseband_packet->base_field_pointer);
         block_Write(atsc3_baseband_packet->alp_payload_pre_pointer, baseband_pre_pointer_payload_start, atsc3_baseband_packet->base_field_pointer);
         block_Rewind(atsc3_baseband_packet->alp_payload_pre_pointer);        
@@ -319,7 +327,7 @@ atsc3_baseband_packet_t* atsc3_stltp_parse_baseband_packet(atsc3_stltp_baseband_
     uint8_t* baseband_pointer_payload_start = baseband_pre_pointer_payload_start + atsc3_baseband_packet->base_field_pointer;
     
     int32_t bytes_remaining_len = binary_payload_length - (baseband_pointer_payload_start - binary_payload_start);
-    if(!bytes_remaining_len) {
+    if(bytes_remaining_len <= 0) {
         __ALP_PARSER_ERROR(" no bytes remaining for baseband packet_payload! binary_payload_length: %d, ptr: start: %p, baseband_pre_pointer_payload_start: %p",
                            binary_payload_length,
                            baseband_pre_pointer_payload_start,

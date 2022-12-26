@@ -435,6 +435,8 @@ void atsc3_stltp_depacketizer_from_ip_udp_rtp_ctp_packet(atsc3_ip_udp_rtp_ctp_pa
             for(int i=0; i < atsc3_alp_packet_collection->atsc3_alp_packet_v.count; i++) {
                 atsc3_alp_packet_t* atsc3_alp_packet = atsc3_alp_packet_collection->atsc3_alp_packet_v.data[i];
                 atsc3_alp_packet_free_alp_payload(atsc3_alp_packet);
+                freeclean(&atsc3_alp_packet->alp_packet_header.alp_packet_header_mode.alp_single_packet_header.header_extension.extension_byte);
+                freeclean(&atsc3_alp_packet->alp_packet_header.alp_packet_segmentation_concatenation.alp_segmentation_header.header_extension.extension_byte);
             }
             atsc3_alp_packet_collection_clear_atsc3_alp_packet(atsc3_alp_packet_collection);
             //todo: refactor to _free(..) for vector_t
